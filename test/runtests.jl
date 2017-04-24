@@ -1,4 +1,4 @@
-using QuadTreeMeshes
+import QuadTreeMeshes
 using Base.Test
 import GeometryTypes
 
