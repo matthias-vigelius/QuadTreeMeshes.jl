@@ -1,8 +1,45 @@
 @testset "QuadTreeTests" begin
+  @testset "Random Line Subdivision" begin
+    # seed rng and store seed in file
+    #local seed = 338139087
+    local seed = rand(UInt32)
+    local fs = open("RandomLineSubdivision.seed", "w")
+    write(fs, string(seed))
+    close(fs)
+    srand(seed)
+
+    bb = GeometryTypes.SimpleRectangle(2.0, 3.0, 4.0, 4.0)
+    q = QuadTreeMeshes.QuadTree{Int}(bb)
+
+    # pick random line inside bounding box
+    linepos = rand(Float64, 4) * 2.0
+    r1 = GeometryTypes.Point(linepos[1] + 2.0, linepos[2] + 3.0)
+    r2 = GeometryTypes.Point(linepos[3] + 2.0, linepos[4] + 3.0)
+    ls = GeometryTypes.LineSegment(r1, r2)
+    QuadTreeMeshes.refine_line_to_level(q, ls, 6)
+
+    # and plot it
+    filename = "random_line_subdivision.svg"
+    Plots.plot(q)
+    Plots.plot!([r1[1], r2[1]], [r1[2], r2[2]])
+    Plots.savefig(filename)
+
+    # go through all elements and check that they either don't intersect
+    # or are in the list
+    for (elIndex, el) in enumerate(q.elements)
+      if (!QuadTreeMeshes.has_child(q, elIndex))
+        intersecting = line_intersects_rectangle(el.boundingBox, ls)
+        if intersecting
+          @test q.elements[elIndex].level == 6
+        end
+      end
+    end
+  end
+  
   @testset "Random Line Intersection" begin
     # seed rng and store seed in file
-    local seed = 4196620933
-    #local seed = rand(UInt32)
+    #local seed = 4196620933
+    local seed = rand(UInt32)
     local fs = open("RandomLineIntersection.seed", "w")
     write(fs, string(seed))
     close(fs)

@@ -201,3 +201,22 @@ function query_line(qt::QuadTree, ls::GeometryTypes.LineSegment{Point})
 
   return query(qt, line_intersects_rectangle, 1, Array{ElIndex, 1}())
 end
+
+function refine_line_to_level(qt::QuadTree, ls::GeometryTypes.LineSegment{Point}, targetLevel::Int)
+  function filtFunc(eli::ElIndex)
+    throwout = !has_child(qt, eli) && qt.elements[eli].level < targetLevel
+    return !has_child(qt, eli) && qt.elements[eli].level < targetLevel
+  end
+
+  leaves = query_line(qt, ls)
+  filter!(filtFunc, leaves)
+  while(!isempty(leaves))
+    for li in leaves
+      if (!has_child(qt, li) && qt.elements[li].level < targetLevel)
+        subdivide!(qt, li)
+      end
+    end
+    leaves = query_line(qt, ls)
+    filter!(filtFunc, leaves)
+  end
+end
