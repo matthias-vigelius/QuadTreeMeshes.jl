@@ -3,3 +3,4 @@
 *.jl.mem
 test/*seed
 test/*svg
+test/*eps
