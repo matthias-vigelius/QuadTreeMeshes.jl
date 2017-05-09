@@ -1,8 +1,5 @@
 import GeometryTypes
 
-typealias ElIndex Int
-typealias Point GeometryTypes.Point{2, Float64}
-
 type QuadTreeElement
   "Index to parent element"
   parent::Nullable{Int}

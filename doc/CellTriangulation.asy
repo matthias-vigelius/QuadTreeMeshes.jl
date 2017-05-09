@@ -33,6 +33,17 @@ path mySquare(int i, int j)
   return shift(myshift(i,j)) * scale(mscale) * unitsquare;
 }
 
+void drawSquareLabels(int i, int j)
+{
+  dot(Label("1"), shift(myshift(i, j)) * scale(mscale)*sw, red);
+  dot(Label("3"), shift(myshift(i, j)) * scale(mscale)*s, red);
+  dot(Label("5"), shift(myshift(i, j)) * scale(mscale)*se, red);
+  dot(Label("7"), shift(myshift(i, j)) * scale(mscale)*e, red);
+  dot(Label("9"), shift(myshift(i, j)) * scale(mscale)*ne, red);
+  dot(Label("11"), shift(myshift(i, j)) * scale(mscale)*n, red);
+  dot(Label("13"), shift(myshift(i, j)) * scale(mscale)*nw, red);
+  dot(Label("15"), shift(myshift(i, j)) * scale(mscale)*w, red);
+}
 
 // if the boundary is aligned with a cell edge, we just add a vertex
 // in the center and connect to all occupied points
@@ -186,6 +197,7 @@ draw((shift(myshift(sx, sy)) * scale(mscale)*nw
 sx = 4;
 sy = 1;
 draw(mySquare(sx, sy));
+drawSquareLabels(sx, sy);
 draw((shift(myshift(sx, sy)) * scale(mscale)*nw
       -- shift(myshift(sx, sy)) * scale(mscale)*se));
 
