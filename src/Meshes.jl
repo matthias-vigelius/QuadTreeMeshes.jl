@@ -1,7 +1,7 @@
 type MeshElement
   triangle_indices::Array{triangle_index, 1}
 
-  boundary_element::bool
+  boundary_element::Bool
   vertex::Nullable{vertex_index}
   line_intersection1::Nullable{Point}
   line_intersection2::Nullable{Point}

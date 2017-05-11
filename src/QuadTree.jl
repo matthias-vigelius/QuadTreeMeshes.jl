@@ -1,5 +1,8 @@
 import GeometryTypes
 
+@enum DIR north=1 west=2 south=3 east=4
+@enum POS northWest=1 northEast=2 southWest=3 southEast=4
+
 type QuadTreeElement
   "Index to parent element"
   parent::Nullable{Int}
@@ -215,5 +218,146 @@ function refine_line_to_level(qt::QuadTree, ls::GeometryTypes.LineSegment{Point}
     end
     leaves = query_line(qt, ls)
     filter!(filtFunc, leaves)
+  end
+end
+
+"""
+    get_element_dir(qt::QuadTree, el::ElIndex)
+
+Gets the relative position of the leave wrt parent.
+
+#Remarks
+# If the element is the root element, it returns `northWest`
+"""
+function get_leave_dir(qt::QuadTree, eli::ElIndex)
+  el = qt.elements[eli]
+  if (isnull(el.parent))
+    return northWest
+  end
+  elp = qt.elements[get(el.parent)]
+
+  if (!isnull(elp.northWest) && get(elp.northWest) == eli)
+    return northWest
+  end
+  if (!isnull(elp.northEast) && get(elp.northEast) == eli)
+    return northEast
+  end
+  if (!isnull(elp.southWest) && get(elp.southWest) == eli)
+    return southWest
+  end
+  if (!isnull(elp.southEast) && get(elp.southEast) == eli)
+    return southEast
+  end
+  error("Quadtree corruption: cannot locate element $eli in parent node.")
+end
+
+"""
+    find_neighbour(qt::QuadTree, elIndex::ElIndex, dir::DIR)
+
+Computes the index of the neigbour in direction `dir`.
+"""
+function find_neighbour(qt::QuadTree, eli::ElIndex, dir::DIR)
+  if isnull(qt.elements[eli].parent)
+    return Nullable{ElIndex}()
+  end
+
+  pos::POS = get_leave_dir(qt, eli)
+  println("Found $pos for element $eli")
+  elp = qt.elements[eli].parent
+
+  if dir == north
+    if pos == southWest
+      return (qt.elements[get(elp)].northWest)
+    end
+    if pos == southEast
+      return (qt.elements[get(elp)].northEast)
+    end
+
+    neighbour = find_neighbour(qt, get(elp), north)
+    if isnull(neighbour)
+      return Nullable{ElIndex}()
+    end
+
+    if !has_child(qt, get(neighbour))
+      return neighbour
+    end
+    if pos == northEast
+      return qt.elements[neighbour].southEast
+    end
+    if pos == northWest
+      return qt.elements[neighbour].southWest
+    end
+  end
+
+  if dir == south
+    if pos == northWest
+      return (qt.elements[get(elp)].southWest)
+    end
+    if pos == northEast
+      return (qt.elements[get(elp)].southEast)
+    end
+
+    neighbour = find_neighbour(qt, get(elp), south)
+    if isnull(neighbour)
+      return Nullable{ElIndex}()
+    end
+
+    if !has_child(qt, get(neighbour))
+      return neighbour
+    end
+    if pos == southEast
+      return qt.elements[neighbour].northEast
+    end
+    if pos == southWest
+      return qt.elements[neighbour].northWest
+    end
+  end
+
+  if dir == west
+    if pos == northEast
+      return (qt.elements[get(elp)].northWest)
+    end
+    if pos == southEast
+      return (qt.elements[get(elp)].northWest)
+    end
+
+    neighbour = find_neighbour(qt, get(elp), west)
+    if isnull(neighbour)
+      return Nullable{ElIndex}()
+    end
+
+    if !has_child(qt, get(neighbour))
+      return neighbour
+    end
+    if pos == northWest
+      return qt.elements[neighbour].northEast
+    end
+    if pos == southWest
+      return qt.elements[neighbour].southEast
+    end
+  end
+
+  if dir == east
+    if pos == northWest
+      return (qt.elements[get(elp)].northEast)
+    end
+    if pos == southWest
+      return (qt.elements[get(elp)].southEast)
+    end
+
+    neighbour = find_neighbour(qt, get(elp), east)
+    if isnull(neighbour)
+      return Nullable{elIndex}()
+    end
+
+    if !has_child(qt, get(neighbour))
+      return neighbour
+    end
+    if pos == northEast
+      return qt.elements[neighbour].northWest
+    end
+    if pos == southEast
+      return qt.elements[neighbour].southWest
+    end
   end
 end
