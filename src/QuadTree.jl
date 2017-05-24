@@ -262,7 +262,6 @@ function find_neighbour(qt::QuadTree, eli::ElIndex, dir::DIR)
   end
 
   pos::POS = get_leave_dir(qt, eli)
-  println("Found $pos for element $eli")
   elp = qt.elements[eli].parent
 
   if dir == north
@@ -318,7 +317,7 @@ function find_neighbour(qt::QuadTree, eli::ElIndex, dir::DIR)
       return (qt.elements[get(elp)].northWest)
     end
     if pos == southEast
-      return (qt.elements[get(elp)].northWest)
+      return (qt.elements[get(elp)].southWest)
     end
 
     neighbour = find_neighbour(qt, get(elp), west)
@@ -347,7 +346,7 @@ function find_neighbour(qt::QuadTree, eli::ElIndex, dir::DIR)
 
     neighbour = find_neighbour(qt, get(elp), east)
     if isnull(neighbour)
-      return Nullable{elIndex}()
+      return Nullable{ElIndex}()
     end
 
     if !has_child(qt, get(neighbour))

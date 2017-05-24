@@ -1,5 +1,129 @@
 @testset "QuadTreeTests" begin
-  @testset "Random Line Subdivision" begin
+    @testset "Neighbour search NE" begin
+      bb = GeometryTypes.SimpleRectangle(2.0, 3.0, 4.0, 4.0)
+      q = QuadTreeMeshes.QuadTree{Int}(bb)
+
+      # subdivide twice
+      QuadTreeMeshes.subdivide!(q, 1)
+      firstElement = get_neighbour_from_index(q, 1, 2)
+      QuadTreeMeshes.subdivide!(q, get(firstElement))
+
+      # and plot it
+      #filename = "subdivide_plot_4.svg"
+      #Plots.plot(q)
+      #Plots.savefig(filename)
+
+      @test get(QuadTreeMeshes.find_neighbour(q, 3, QuadTreeMeshes.south)) == 5
+      @test get(QuadTreeMeshes.find_neighbour(q, 3, QuadTreeMeshes.west)) == 2
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 3, QuadTreeMeshes.east))
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 3, QuadTreeMeshes.north))
+      @test get(QuadTreeMeshes.find_neighbour(q, 2, QuadTreeMeshes.east)) == 3
+      @test get(QuadTreeMeshes.find_neighbour(q, 5, QuadTreeMeshes.north)) == 3
+
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.west)) == 2
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.north))
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.east)) == 7
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.south)) == 8
+
+      @test get(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.west)) == 6
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.north))
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.east))
+      @test get(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.south)) == 9
+      #println("$q")
+    end
+
+    @testset "Neighbour search SE" begin
+      bb = GeometryTypes.SimpleRectangle(2.0, 3.0, 4.0, 4.0)
+      q = QuadTreeMeshes.QuadTree{Int}(bb)
+
+      # subdivide twice
+      QuadTreeMeshes.subdivide!(q, 1)
+      firstElement = get_neighbour_from_index(q, 1, 4)
+      QuadTreeMeshes.subdivide!(q, get(firstElement))
+
+      # and plot it
+      #filename = "subdivide_plot_3.svg"
+      #Plots.plot(q)
+      #Plots.savefig(filename)
+
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 5, QuadTreeMeshes.south))
+      @test get(QuadTreeMeshes.find_neighbour(q, 5, QuadTreeMeshes.west)) == 4
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 5, QuadTreeMeshes.east))
+      @test get(QuadTreeMeshes.find_neighbour(q, 5, QuadTreeMeshes.north)) == 3
+      @test get(QuadTreeMeshes.find_neighbour(q, 4, QuadTreeMeshes.east)) == 5
+      @test get(QuadTreeMeshes.find_neighbour(q, 3, QuadTreeMeshes.south)) == 5
+
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.west)) == 4
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.north)) == 3
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.east)) == 7
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.south)) == 8
+
+      @test get(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.west)) == 6
+      @test get(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.north)) == 3
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.east))
+      @test get(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.south)) == 9
+      #println("$q")
+    end
+
+    @testset "Neighbour search SW" begin
+      bb = GeometryTypes.SimpleRectangle(2.0, 3.0, 4.0, 4.0)
+      q = QuadTreeMeshes.QuadTree{Int}(bb)
+
+      # subdivide twice
+      QuadTreeMeshes.subdivide!(q, 1)
+      firstElement = get_neighbour_from_index(q, 1, 3)
+      QuadTreeMeshes.subdivide!(q, get(firstElement))
+
+      # and plot it
+      #filename = "subdivide_plot_2.svg"
+      #Plots.plot(q)
+      #Plots.savefig(filename)
+
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 4, QuadTreeMeshes.south))
+      @test get(QuadTreeMeshes.find_neighbour(q, 4, QuadTreeMeshes.east)) == 5
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 4, QuadTreeMeshes.west))
+      @test get(QuadTreeMeshes.find_neighbour(q, 4, QuadTreeMeshes.north)) == 2
+      @test get(QuadTreeMeshes.find_neighbour(q, 5, QuadTreeMeshes.west)) == 4
+      @test get(QuadTreeMeshes.find_neighbour(q, 5, QuadTreeMeshes.north)) == 3
+
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.west))
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.north)) == 2
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.east)) == 7
+      @test get(QuadTreeMeshes.find_neighbour(q, 6, QuadTreeMeshes.south)) == 8
+
+      @test get(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.west)) == 6
+      @test get(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.north)) == 2
+      @test get(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.east)) == 5
+      @test get(QuadTreeMeshes.find_neighbour(q, 7, QuadTreeMeshes.south)) == 9
+      #println("$q")
+    end
+
+    @testset "Neighbour search NW" begin
+      bb = GeometryTypes.SimpleRectangle(2.0, 3.0, 4.0, 4.0)
+      q = QuadTreeMeshes.QuadTree{Int}(bb)
+
+      # subdivide twice
+      QuadTreeMeshes.subdivide!(q, 1)
+      firstElement = get_neighbour_from_index(q, 1, 1)
+      QuadTreeMeshes.subdivide!(q, get(firstElement))
+
+      # and plot it
+      #filename = "subdivide_plot_1.svg"
+      #Plots.plot(q)
+      #Plots.savefig(filename)
+
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 2, QuadTreeMeshes.north))
+      @test get(QuadTreeMeshes.find_neighbour(q, 2, QuadTreeMeshes.east)) == 3
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 2, QuadTreeMeshes.west))
+      @test get(QuadTreeMeshes.find_neighbour(q, 2, QuadTreeMeshes.south)) == 4
+      @test get(QuadTreeMeshes.find_neighbour(q, 3, QuadTreeMeshes.west)) == 2
+      @test get(QuadTreeMeshes.find_neighbour(q, 3, QuadTreeMeshes.south)) == 5
+      @test isnull(QuadTreeMeshes.find_neighbour(q, 3, QuadTreeMeshes.north))
+
+      #println("$q")
+    end
+
+    @testset "Random Line Subdivision" begin
     # seed rng and store seed in file
     #local seed = 338139087
     local seed = rand(UInt32)
@@ -35,7 +159,7 @@
       end
     end
   end
-  
+
   @testset "Random Line Intersection" begin
     # seed rng and store seed in file
     #local seed = 4196620933
