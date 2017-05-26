@@ -4,9 +4,9 @@
     q = QuadTreeMeshes.QuadTree{Int}(bb)
 
     # subdivide twice
-    QuadTreeMeshes.subdivide!(q, 1)
+    QuadTreeMeshes.subdivide!(q, 1, subdivideFunc)
     firstElement = get_neighbour_from_index(q, 1, 2)
-    QuadTreeMeshes.subdivide!(q, get(firstElement))
+    QuadTreeMeshes.subdivide!(q, get(firstElement), subdivideFunc)
 
     # and plot it
     #filename = "subdivide_plot_4.svg"

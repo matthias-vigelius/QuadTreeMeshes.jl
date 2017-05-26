@@ -47,7 +47,7 @@ function has_child(qt::QuadTree, elIndex::ElIndex)
   return !isnull(qt.elements[elIndex].northWest)
 end
 
-function push_new_element!(qt::QuadTree, newBB::GeometryTypes.SimpleRectangle, newLevel::Int, newIndex::Int, elIndex::Int)
+function push_new_element!(qt::QuadTree, newBB::GeometryTypes.SimpleRectangle, newLevel::Int, newIndex::Int, elIndex::Int, childrenCreated)
   nwEl = QuadTreeElement(
     Nullable{Int}(elIndex),
     Nullable{Int}(),
@@ -60,6 +60,8 @@ function push_new_element!(qt::QuadTree, newBB::GeometryTypes.SimpleRectangle, n
   )
   push!(qt.elements, nwEl)
   push!(qt.values, [])
+
+  childrenCreated(nwEl)
 end
 
 function get_children(qt::QuadTree, elIndex::Int)
@@ -77,7 +79,7 @@ function get_children(qt::QuadTree, elIndex::Int)
 end
 
 """
-    subdivide(qt::QuadTree, elIndex::Int)
+    subdivide!(qt::QuadTree, elIndex::Int, childrenCreated)
 
 Subdivides quadtree element denoted by `elIndex`.
 
@@ -85,8 +87,9 @@ Subdivides quadtree element denoted by `elIndex`.
 * If necessary, its neighbours are subdivided as well in order to balance the
   tree.
 * The element needs to be a leave, i.e. it cannot have any children.
+* `childrenCreated(el::QuadTreeElement)` will be called for each new leave that is created
 """
-function subdivide!(qt::QuadTree, elIndex::Int)
+function subdivide!(qt::QuadTree, elIndex::Int, childrenCreated)
   qtEl = qt.elements[elIndex]
   @assert(isnull(qtEl.northWest))
   @assert(isnull(qtEl.northEast))
@@ -104,28 +107,28 @@ function subdivide!(qt::QuadTree, elIndex::Int)
   # northWest
   nwBB = GeometryTypes.SimpleRectangle(GeometryTypes.Vec(bbCenter - newWidth * GeometryTypes.Vec(1.0,0.0)),
                                  newWidth * GeometryTypes.Vec(1.0,1.0))
-  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex)
+  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex, childrenCreated)
   qtEl.northWest = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
   # northEast
   nwBB = GeometryTypes.SimpleRectangle(GeometryTypes.Vec(bbCenter),
                                  newWidth * GeometryTypes.Vec(1.0,1.0))
-  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex)
+  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex, childrenCreated)
   qtEl.northEast = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
   # southWest
   nwBB = GeometryTypes.SimpleRectangle(GeometryTypes.Vec(GeometryTypes.origin(bb)),
                                  newWidth * GeometryTypes.Vec(1.0,1.0))
-  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex)
+  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex, childrenCreated)
   qtEl.southWest = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
   # northWest
   nwBB = GeometryTypes.SimpleRectangle(GeometryTypes.Vec(bbCenter - newWidth * GeometryTypes.Vec(0.0,1.0)),
                                  newWidth * GeometryTypes.Vec(1.0,1.0))
-  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex)
+  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex, childrenCreated)
   qtEl.southEast = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
@@ -141,7 +144,7 @@ function subdivide!(qt::QuadTree, elIndex::Int)
       if !isnull(children)
         for child in get(children)
           if (child != elIndex) && (!has_child(qt, child))
-            subdivide!(qt, child)
+            subdivide!(qt, child, childrenCreated)
           end
         end
       end
@@ -202,7 +205,11 @@ function query_line(qt::QuadTree, ls::GeometryTypes.LineSegment{Point})
   return query(qt, line_intersects_rectangle, 1, Array{ElIndex, 1}())
 end
 
-function refine_line_to_level(qt::QuadTree, ls::GeometryTypes.LineSegment{Point}, targetLevel::Int)
+function refine_line_to_level(
+  qt::QuadTree,
+  ls::GeometryTypes.LineSegment{Point},
+  targetLevel::Int,
+  childrenCreated)
   function filtFunc(eli::ElIndex)
     throwout = !has_child(qt, eli) && qt.elements[eli].level < targetLevel
     return !has_child(qt, eli) && qt.elements[eli].level < targetLevel
@@ -213,7 +220,7 @@ function refine_line_to_level(qt::QuadTree, ls::GeometryTypes.LineSegment{Point}
   while(!isempty(leaves))
     for li in leaves
       if (!has_child(qt, li) && qt.elements[li].level < targetLevel)
-        subdivide!(qt, li)
+        subdivide!(qt, li, childrenCreated)
       end
     end
     leaves = query_line(qt, ls)

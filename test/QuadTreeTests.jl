@@ -4,9 +4,9 @@
       q = QuadTreeMeshes.QuadTree{Int}(bb)
 
       # subdivide twice
-      QuadTreeMeshes.subdivide!(q, 1)
+      QuadTreeMeshes.subdivide!(q, 1, subdividefunc)
       firstElement = get_neighbour_from_index(q, 1, 2)
-      QuadTreeMeshes.subdivide!(q, get(firstElement))
+      QuadTreeMeshes.subdivide!(q, get(firstElement), subdividefunc)
 
       # and plot it
       #filename = "subdivide_plot_4.svg"
@@ -37,9 +37,9 @@
       q = QuadTreeMeshes.QuadTree{Int}(bb)
 
       # subdivide twice
-      QuadTreeMeshes.subdivide!(q, 1)
+      QuadTreeMeshes.subdivide!(q, 1, subdividefunc)
       firstElement = get_neighbour_from_index(q, 1, 4)
-      QuadTreeMeshes.subdivide!(q, get(firstElement))
+      QuadTreeMeshes.subdivide!(q, get(firstElement), subdividefunc)
 
       # and plot it
       #filename = "subdivide_plot_3.svg"
@@ -70,9 +70,9 @@
       q = QuadTreeMeshes.QuadTree{Int}(bb)
 
       # subdivide twice
-      QuadTreeMeshes.subdivide!(q, 1)
+      QuadTreeMeshes.subdivide!(q, 1, subdividefunc)
       firstElement = get_neighbour_from_index(q, 1, 3)
-      QuadTreeMeshes.subdivide!(q, get(firstElement))
+      QuadTreeMeshes.subdivide!(q, get(firstElement), subdividefunc)
 
       # and plot it
       #filename = "subdivide_plot_2.svg"
@@ -103,9 +103,9 @@
       q = QuadTreeMeshes.QuadTree{Int}(bb)
 
       # subdivide twice
-      QuadTreeMeshes.subdivide!(q, 1)
+      QuadTreeMeshes.subdivide!(q, 1, subdividefunc)
       firstElement = get_neighbour_from_index(q, 1, 1)
-      QuadTreeMeshes.subdivide!(q, get(firstElement))
+      QuadTreeMeshes.subdivide!(q, get(firstElement), subdividefunc)
 
       # and plot it
       #filename = "subdivide_plot_1.svg"
@@ -140,7 +140,7 @@
     r1 = GeometryTypes.Point(linepos[1] + 2.0, linepos[2] + 3.0)
     r2 = GeometryTypes.Point(linepos[3] + 2.0, linepos[4] + 3.0)
     ls = GeometryTypes.LineSegment(r1, r2)
-    QuadTreeMeshes.refine_line_to_level(q, ls, 6)
+    QuadTreeMeshes.refine_line_to_level(q, ls, 6, subdividefunc)
 
     # and plot it
     filename = "random_line_subdivision.svg"
@@ -173,7 +173,7 @@
     q = QuadTreeMeshes.QuadTree{Int}(bb)
 
     # subdivide three random children
-    QuadTreeMeshes.subdivide!(q, 1)
+    QuadTreeMeshes.subdivide!(q, 1, subdividefunc)
     subdivide_random!(q)
     subdivide_random!(q)
     subdivide_random!(q)
@@ -215,11 +215,11 @@
     q = QuadTreeMeshes.QuadTree{Int}(bb)
 
     # subdivide twice
-    QuadTreeMeshes.subdivide!(q, 1)
+    QuadTreeMeshes.subdivide!(q, 1, subdividefunc)
     firstElement = get_neighbour_from_index(q, 1, u)
-    QuadTreeMeshes.subdivide!(q, get(firstElement))
+    QuadTreeMeshes.subdivide!(q, get(firstElement), subdividefunc)
     secondElement = get_neighbour_from_index(q, get(firstElement), v)
-    QuadTreeMeshes.subdivide!(q, get(secondElement))
+    QuadTreeMeshes.subdivide!(q, get(secondElement), subdividefunc)
 
     # check that all levels are correctly subdivided
     # (i.e. it is balanced)

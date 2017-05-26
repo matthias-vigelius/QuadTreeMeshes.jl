@@ -1,13 +1,17 @@
 type MeshElement
   triangle_indices::Array{triangle_index, 1}
 
-  boundary_element::Bool
-  vertex::Nullable{vertex_index}
-  line_intersection1::Nullable{Point}
-  line_intersection2::Nullable{Point}
-  snapped_intersection1::Nullable{Int}
-  snapped_intersection2::Nullable{Int}
+  #boundary_element::Bool
+  #vertex::Nullable{vertex_index}
+  #line_intersection1::Nullable{Point}
+  #line_intersection2::Nullable{Point}
+  #snapped_intersection1::Nullable{Int}
+  #snapped_intersection2::Nullable{Int}
 
+  """
+  Encodes the occupied grid and half-grid connectors as a binary
+  to match the template.
+  """
   connector_positions::Int
   connectors::FixedSizeArrays.FixedVector{16, vertex_index}
 end
@@ -37,3 +41,9 @@ inner_templates = [
   [[1, 11, 13], [1, 3, 11], [3, 5, 7], [3, 7, 11], [7, 9, 11]], # 1110
   [[1, 3, 15], [3, 5, 7], [15, 3, 11], [15, 11, 13], [3, 7, 11], [7, 9, 11]], # 1111
 ]
+
+# TODO
+# - add mesh type containing vertex_indices
+# - constructor creates mesh element from quadtree element (adding vertices)
+# - quadtree should reference mesh elements
+# - only children should have mesh elements - so maybe type is a nullable{MeshElement}

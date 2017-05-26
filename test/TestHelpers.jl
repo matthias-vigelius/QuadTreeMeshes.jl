@@ -1,3 +1,7 @@
+function subdividefunc(x)
+  #println("$x")
+end
+
 function onlinesegment(
   xi::QuadTreeMeshes.Point,
   x1::QuadTreeMeshes.Point,
@@ -92,7 +96,7 @@ function subdivide_random!(qt::QuadTreeMeshes.QuadTree)
     elIndex = rand(1:size(qt.elements, 1))
   end
 
-  QuadTreeMeshes.subdivide!(qt, elIndex)
+  QuadTreeMeshes.subdivide!(qt, elIndex, subdividefunc)
 end
 
 function get_neighbour_from_index(qt::QuadTreeMeshes.QuadTree, elIndex::Int, neighIndex::Int)
