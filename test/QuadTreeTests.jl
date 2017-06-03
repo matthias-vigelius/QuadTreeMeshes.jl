@@ -152,7 +152,8 @@
     # or are in the list
     for (elIndex, el) in enumerate(q.elements)
       if (!QuadTreeMeshes.has_child(q, elIndex))
-        intersecting = line_intersects_rectangle(el.boundingBox, ls)
+        bb = QuadTreeMeshes.get_element_bounding_box(q, el)
+        intersecting = line_intersects_rectangle(bb, ls)
         if intersecting
           @test q.elements[elIndex].level == 6
         end
@@ -195,7 +196,8 @@
     # or are in the list
     for (elIndex, el) in enumerate(q.elements)
       if (!QuadTreeMeshes.has_child(q, elIndex))
-        intersecting = line_intersects_rectangle(el.boundingBox, ls)
+        bb = QuadTreeMeshes.get_element_bounding_box(q, el)
+        intersecting = line_intersects_rectangle(bb, ls)
         interPos = findfirst(intersectingLeaves, elIndex)
         if intersecting
           @test interPos > 0
@@ -221,14 +223,15 @@
     secondElement = get_neighbour_from_index(q, get(firstElement), v)
     QuadTreeMeshes.subdivide!(q, get(secondElement), subdividefunc)
 
+    # and plot it
+    filename = "subdivide_plot_$u$v.svg"
+    Plots.plot(q)
+    Plots.savefig(filename)
+    
     # check that all levels are correctly subdivided
     # (i.e. it is balanced)
     check_subdivision_levels(q)
 
-    # and plot it
-    #filename = "subdivide_plot_$u$v.svg"
-    #Plots.plot(q)
-    #Plots.savefig(filename)
   end
   end
   end
@@ -248,7 +251,8 @@
   @test isnull(firstEl.southWest)
   @test firstEl.level == 1
   @test firstEl.index == 1
-  @test firstEl.boundingBox == bb
+  testBB = QuadTreeMeshes.get_element_bounding_box(q, firstEl)
+  @test testBB == bb
   @test typeof(q.values) == Array{Array{Int, 1}, 1}
   @test length(q.values) == 1
   end

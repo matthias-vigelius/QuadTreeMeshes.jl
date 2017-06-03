@@ -121,7 +121,7 @@ function check_subdivision_levels(qt::QuadTreeMeshes.QuadTree)
   # collect all boundary edges of leaves
   for curNode in qt.elements
     if (isnull(curNode.northWest))
-      bb = curNode.boundingBox
+      bb = QuadTreeMeshes.get_element_bounding_box(qt, curNode)
       push!(segments, GeometryTypes.LineSegment(GeometryTypes.Point{2, Float64}(bb.x, bb.y), GeometryTypes.Point{2,Float64}(bb.x + bb.w, bb.y)))
       push!(segments, GeometryTypes.LineSegment(GeometryTypes.Point{2, Float64}(bb.x + bb.w, bb.y), GeometryTypes.Point{2, Float64}(bb.x + bb.w, bb.y + bb.h)))
       push!(segments, GeometryTypes.LineSegment(GeometryTypes.Point{2, Float64}(bb.x, bb.y), GeometryTypes.Point{2, Float64}(bb.x, bb.y + bb.h)))

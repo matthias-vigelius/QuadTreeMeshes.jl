@@ -42,8 +42,12 @@ inner_templates = [
   [[1, 3, 15], [3, 5, 7], [15, 3, 11], [15, 11, 13], [3, 7, 11], [7, 9, 11]], # 1111
 ]
 
+type QuadTreeMesh
+  quadTree::QuadTree{Nullable{MeshElement}}
+end
+
 # TODO
 # - add mesh type containing vertex_indices
 # - constructor creates mesh element from quadtree element (adding vertices)
 # - quadtree should reference mesh elements
-# - only children should have mesh elements - so maybe type is a nullable{MeshElement}
+# - only children should have mesh elements - so maybe type is a nullable{MeshElement}.. if child is created, null the parent

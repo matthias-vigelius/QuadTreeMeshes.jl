@@ -18,17 +18,32 @@ type QuadTreeElement
   level::Int
   "Own Index"
   index::Int
-  "Bounding box"
-  boundingBox::GeometryTypes.SimpleRectangle{Float64}
+
+  bbLeftBottomIndex::vertex_index
+  bbRightBottomIndex::vertex_index
+  bbLeftTopIndex::vertex_index
+  bbRightTopIndex::vertex_index
 end
 
 type QuadTree{T}
 
   elements::Array{QuadTreeElement, 1}
   values::Array{Array{T, 1}, 1}
+  vertices::Array{Point, 1}
 
   function QuadTree(bb::GeometryTypes.SimpleRectangle{Float64})
     @assert GeometryTypes.width(bb) == GeometryTypes.height(bb)
+    @assert GeometryTypes.width(bb) > 0
+    @assert GeometryTypes.height(bb) > 0
+    bl = Point(GeometryTypes.origin(bb))
+    br = bl + GeometryTypes.width(bb) * GeometryTypes.Vec(1.0,0.0)
+    tr = br + GeometryTypes.height(bb) * GeometryTypes.Vec(0.0,1.0)
+    tl = bl + GeometryTypes.height(bb) * GeometryTypes.Vec(0.0,1.0)
+    initialVertices = Array{Point, 1}()
+    push!(initialVertices, bl)
+    push!(initialVertices, br)
+    push!(initialVertices, tl)
+    push!(initialVertices, tr)
     root = QuadTreeElement(
       Nullable{Int}(),
       Nullable{Int}(),
@@ -37,9 +52,9 @@ type QuadTree{T}
       Nullable{Int}(),
       1,
       1,
-      bb
+      1, 2, 3, 4
     )
-    new([root], [[]])
+    new([root], [[]], initialVertices)
   end
 end
 
@@ -47,7 +62,7 @@ function has_child(qt::QuadTree, elIndex::ElIndex)
   return !isnull(qt.elements[elIndex].northWest)
 end
 
-function push_new_element!(qt::QuadTree, newBB::GeometryTypes.SimpleRectangle, newLevel::Int, newIndex::Int, elIndex::Int, childrenCreated)
+function push_new_element!(qt::QuadTree, bbbl::vertex_index, bbbr::vertex_index, bbtl::vertex_index, bbtr::vertex_index, newLevel::Int, newIndex::Int, elIndex::Int, childrenCreated)
   nwEl = QuadTreeElement(
     Nullable{Int}(elIndex),
     Nullable{Int}(),
@@ -56,7 +71,7 @@ function push_new_element!(qt::QuadTree, newBB::GeometryTypes.SimpleRectangle, n
     Nullable{Int}(),
     newLevel,
     newIndex,
-    newBB
+    bbbl, bbbr, bbtl, bbtr
   )
   push!(qt.elements, nwEl)
   push!(qt.values, [])
@@ -79,6 +94,169 @@ function get_children(qt::QuadTree, elIndex::Int)
 end
 
 """
+    find_neighbour(qt::QuadTree, elIndex::ElIndex, dir::DIR)
+
+Computes the index of the neigbour in direction `dir`.
+"""
+function find_neighbour(qt::QuadTree, eli::ElIndex, dir::DIR)
+  if isnull(qt.elements[eli].parent)
+    return Nullable{ElIndex}()
+  end
+
+  pos::POS = get_leave_dir(qt, eli)
+  elp = qt.elements[eli].parent
+
+  if dir == north
+    if pos == southWest
+      return (qt.elements[get(elp)].northWest)
+    end
+    if pos == southEast
+      return (qt.elements[get(elp)].northEast)
+    end
+
+    neighbour = find_neighbour(qt, get(elp), north)
+    if isnull(neighbour)
+      return Nullable{ElIndex}()
+    end
+
+    if !has_child(qt, get(neighbour))
+      return neighbour
+    end
+    if pos == northEast
+      return qt.elements[get(neighbour)].southEast
+    end
+    if pos == northWest
+      return qt.elements[get(neighbour)].southWest
+    end
+  end
+
+  if dir == south
+    if pos == northWest
+      return (qt.elements[get(elp)].southWest)
+    end
+    if pos == northEast
+      return (qt.elements[get(elp)].southEast)
+    end
+
+    neighbour = find_neighbour(qt, get(elp), south)
+    if isnull(neighbour)
+      return Nullable{ElIndex}()
+    end
+
+    if !has_child(qt, get(neighbour))
+      return neighbour
+    end
+    if pos == southEast
+      return qt.elements[get(neighbour)].northEast
+    end
+    if pos == southWest
+      return qt.elements[get(neighbour)].northWest
+    end
+  end
+
+  if dir == west
+    if pos == northEast
+      return (qt.elements[get(elp)].northWest)
+    end
+    if pos == southEast
+      return (qt.elements[get(elp)].southWest)
+    end
+
+    neighbour = find_neighbour(qt, get(elp), west)
+    if isnull(neighbour)
+      return Nullable{ElIndex}()
+    end
+
+    if !has_child(qt, get(neighbour))
+      return neighbour
+    end
+    if pos == northWest
+      return qt.elements[get(neighbour)].northEast
+    end
+    if pos == southWest
+      return qt.elements[get(neighbour)].southEast
+    end
+  end
+
+  if dir == east
+    if pos == northWest
+      return (qt.elements[get(elp)].northEast)
+    end
+    if pos == southWest
+      return (qt.elements[get(elp)].southEast)
+    end
+
+    neighbour = find_neighbour(qt, get(elp), east)
+    if isnull(neighbour)
+      return Nullable{ElIndex}()
+    end
+
+    if !has_child(qt, get(neighbour))
+      return neighbour
+    end
+    if pos == northEast
+      return qt.elements[get(neighbour)].northWest
+    end
+    if pos == southEast
+      return qt.elements[get(neighbour)].southWest
+    end
+  end
+end
+
+"""
+    get_new_center(qt::QuadTree, elIndex::Int, dir::DIR)
+
+If the boundary in direction `dir` is currently undivided, it adds a new
+vertex at its center and returns its index. If the boundary is divided and
+that vertex hence exists, it only returns its index.
+"""
+function get_new_center(qt::QuadTree, elIndex::Int, dir::DIR)
+
+  # get vertex indices of requested boundary line
+  if dir == north
+    v1, v2 = qt.elements[elIndex].bbLeftTopIndex, qt.elements[elIndex].bbRightTopIndex
+  elseif dir == south
+    v1, v2 = qt.elements[elIndex].bbLeftBottomIndex, qt.elements[elIndex].bbRightBottomIndex
+  elseif dir == west
+    v1, v2 = qt.elements[elIndex].bbLeftBottomIndex, qt.elements[elIndex].bbLeftTopIndex
+  elseif  dir == east
+    v1, v2 = qt.elements[elIndex].bbRightBottomIndex, qt.elements[elIndex].bbRightTopIndex
+  end
+
+  # check if neighbour is there and if it is divided
+  neighbour = find_neighbour(qt, elIndex, dir)
+  if (isnull(neighbour) || !has_child(qt, get(neighbour)))
+    newCenter = 0.5*(qt.vertices[v1] + qt.vertices[v2])
+    push!(qt.vertices, newCenter)
+    return length(qt.vertices)
+  end
+
+  # need to return center index
+  neighbourEl = qt.elements[get(neighbour)]
+  if dir == north
+    seChild = qt.elements[get(neighbourEl.southEast)]
+    swChild = qt.elements[get(neighbourEl.southWest)]
+    assert(seChild.bbLeftBottomIndex == swChild.bbRightBottomIndex)
+    return seChild.bbLeftBottomIndex
+  elseif dir == south
+    neChild = qt.elements[get(neighbourEl.northEast)]
+    nwChild = qt.elements[get(neighbourEl.northWest)]
+    assert(nwChild.bbRightTopIndex == neChild.bbLeftTopIndex)
+    return nwChild.bbRightTopIndex
+  elseif dir == west
+    neChild = qt.elements[get(neighbourEl.northEast)]
+    seChild = qt.elements[get(neighbourEl.southEast)]
+    assert(neChild.bbRightBottomIndex == seChild.bbRightTopIndex)
+    return neChild.bbRightBottomIndex
+  elseif dir == east
+    nwChild = qt.elements[get(neighbourEl.northWest)]
+    swChild = qt.elements[get(neighbourEl.southWest)]
+    assert(nwChild.bbLeftBottomIndex == swChild.bbLeftTopIndex)
+    return nwChild.bbLeftBottomIndex
+  end
+end
+
+"""
     subdivide!(qt::QuadTree, elIndex::Int, childrenCreated)
 
 Subdivides quadtree element denoted by `elIndex`.
@@ -96,39 +274,41 @@ function subdivide!(qt::QuadTree, elIndex::Int, childrenCreated)
   @assert(isnull(qtEl.southWest))
   @assert(isnull(qtEl.southEast))
 
-  # get center point of bounding box and create new children
-  bb = qtEl.boundingBox
-  width = GeometryTypes.width(bb)
-  newWidth = 0.5*width
-  bbCenter = GeometryTypes.origin(bb) + newWidth * GeometryTypes.Vec(1.0,1.0)
+  # we need a new center point
+  bl = qt.vertices[qtEl.bbLeftBottomIndex]
+  br = qt.vertices[qtEl.bbRightBottomIndex]
+  tl = qt.vertices[qtEl.bbLeftTopIndex]
+  tr = qt.vertices[qtEl.bbRightTopIndex]
+  newCenter = 0.25*(bl+br+tl+tr)
+  push!(qt.vertices, newCenter)
+  newCenterIndex = length(qt.vertices)
+
+  # get boundary center points
+  northCenterIndex = get_new_center(qt, elIndex, north)
+  southCenterIndex = get_new_center(qt, elIndex, south)
+  westCenterIndex = get_new_center(qt, elIndex, west)
+  eastCenterIndex = get_new_center(qt, elIndex, east)
+
   newLevel = qtEl.level + 1
   newIndex = length(qt.elements) + 1
 
   # northWest
-  nwBB = GeometryTypes.SimpleRectangle(GeometryTypes.Vec(bbCenter - newWidth * GeometryTypes.Vec(1.0,0.0)),
-                                 newWidth * GeometryTypes.Vec(1.0,1.0))
-  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex, childrenCreated)
+  push_new_element!(qt, westCenterIndex, newCenterIndex, qtEl.bbLeftTopIndex, northCenterIndex, newLevel, newIndex, elIndex, childrenCreated)
   qtEl.northWest = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
   # northEast
-  nwBB = GeometryTypes.SimpleRectangle(GeometryTypes.Vec(bbCenter),
-                                 newWidth * GeometryTypes.Vec(1.0,1.0))
-  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex, childrenCreated)
+  push_new_element!(qt, newCenterIndex, eastCenterIndex, northCenterIndex, qtEl.bbRightTopIndex, newLevel, newIndex, elIndex, childrenCreated)
   qtEl.northEast = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
   # southWest
-  nwBB = GeometryTypes.SimpleRectangle(GeometryTypes.Vec(GeometryTypes.origin(bb)),
-                                 newWidth * GeometryTypes.Vec(1.0,1.0))
-  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex, childrenCreated)
+  push_new_element!(qt, qtEl.bbLeftBottomIndex, southCenterIndex, westCenterIndex, newCenterIndex, newLevel, newIndex, elIndex, childrenCreated)
   qtEl.southWest = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
-  # northWest
-  nwBB = GeometryTypes.SimpleRectangle(GeometryTypes.Vec(bbCenter - newWidth * GeometryTypes.Vec(0.0,1.0)),
-                                 newWidth * GeometryTypes.Vec(1.0,1.0))
-  push_new_element!(qt, nwBB, newLevel, newIndex, elIndex, childrenCreated)
+  # southEast
+  push_new_element!(qt, southCenterIndex, qtEl.bbRightBottomIndex, newCenterIndex, eastCenterIndex, newLevel, newIndex, elIndex, childrenCreated)
   qtEl.southEast = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
@@ -152,9 +332,24 @@ function subdivide!(qt::QuadTree, elIndex::Int, childrenCreated)
   end
 end
 
+function get_element_bounding_box(qt::QuadTree, qtEl::QuadTreeElement)
+  bl = qt.vertices[qtEl.bbLeftBottomIndex]
+  tr = qt.vertices[qtEl.bbRightTopIndex]
+  width = (tr - bl)[1]
+  height = (tr - bl)[2]
+  bb = GeometryTypes.SimpleRectangle(bl[1], bl[2], width, height)
+
+  return bb
+end
+
+function get_element_bounding_box(qt::QuadTree, elIndex::ElIndex)
+  qtEl = qt.elements[elIndex]
+
+  return get_element_bounding_box(qt, qtEl)
+end
+
 function query(qt::QuadTree, testFunction, curElIndex::ElIndex, els::Array{ElIndex, 1})
-  curEl = qt.elements[curElIndex]
-  if !testFunction(curEl.boundingBox)
+  if !testFunction(get_element_bounding_box(qt, curElIndex))
     return els
   end
 
@@ -256,114 +451,4 @@ function get_leave_dir(qt::QuadTree, eli::ElIndex)
     return southEast
   end
   error("Quadtree corruption: cannot locate element $eli in parent node.")
-end
-
-"""
-    find_neighbour(qt::QuadTree, elIndex::ElIndex, dir::DIR)
-
-Computes the index of the neigbour in direction `dir`.
-"""
-function find_neighbour(qt::QuadTree, eli::ElIndex, dir::DIR)
-  if isnull(qt.elements[eli].parent)
-    return Nullable{ElIndex}()
-  end
-
-  pos::POS = get_leave_dir(qt, eli)
-  elp = qt.elements[eli].parent
-
-  if dir == north
-    if pos == southWest
-      return (qt.elements[get(elp)].northWest)
-    end
-    if pos == southEast
-      return (qt.elements[get(elp)].northEast)
-    end
-
-    neighbour = find_neighbour(qt, get(elp), north)
-    if isnull(neighbour)
-      return Nullable{ElIndex}()
-    end
-
-    if !has_child(qt, get(neighbour))
-      return neighbour
-    end
-    if pos == northEast
-      return qt.elements[neighbour].southEast
-    end
-    if pos == northWest
-      return qt.elements[neighbour].southWest
-    end
-  end
-
-  if dir == south
-    if pos == northWest
-      return (qt.elements[get(elp)].southWest)
-    end
-    if pos == northEast
-      return (qt.elements[get(elp)].southEast)
-    end
-
-    neighbour = find_neighbour(qt, get(elp), south)
-    if isnull(neighbour)
-      return Nullable{ElIndex}()
-    end
-
-    if !has_child(qt, get(neighbour))
-      return neighbour
-    end
-    if pos == southEast
-      return qt.elements[neighbour].northEast
-    end
-    if pos == southWest
-      return qt.elements[neighbour].northWest
-    end
-  end
-
-  if dir == west
-    if pos == northEast
-      return (qt.elements[get(elp)].northWest)
-    end
-    if pos == southEast
-      return (qt.elements[get(elp)].southWest)
-    end
-
-    neighbour = find_neighbour(qt, get(elp), west)
-    if isnull(neighbour)
-      return Nullable{ElIndex}()
-    end
-
-    if !has_child(qt, get(neighbour))
-      return neighbour
-    end
-    if pos == northWest
-      return qt.elements[neighbour].northEast
-    end
-    if pos == southWest
-      return qt.elements[neighbour].southEast
-    end
-  end
-
-  if dir == east
-    if pos == northWest
-      return (qt.elements[get(elp)].northEast)
-    end
-    if pos == southWest
-      return (qt.elements[get(elp)].southEast)
-    end
-
-    neighbour = find_neighbour(qt, get(elp), east)
-    if isnull(neighbour)
-      return Nullable{ElIndex}()
-    end
-
-    if !has_child(qt, get(neighbour))
-      return neighbour
-    end
-    if pos == northEast
-      return qt.elements[neighbour].northWest
-    end
-    if pos == southEast
-      return qt.elements[neighbour].southWest
-    end
-  end
 end
