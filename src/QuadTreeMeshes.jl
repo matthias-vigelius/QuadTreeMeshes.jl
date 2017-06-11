@@ -11,7 +11,7 @@ typealias vertex_index Int
 
 # package code goes here
 include("QuadTree.jl")
-include("PlotRecipes.jl")
 include("Meshes.jl")
+include("PlotRecipes.jl")
 
 end # module

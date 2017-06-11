@@ -16,9 +16,9 @@
     @test mesh.triangles[2].vertex_indices == FixedSizeArrays.Vec{3, QuadTreeMeshes.vertex_index}([2,4,3])
 
     # plot triangulation
-    #filename = "triangulate_leave_0000.svg"
-    #Plots.plot(mesh_element)
-    #Plots.savefig(filename)
+    filename = "triangulate_leave_0000.svg"
+    Plots.plot(mesh)
+    Plots.savefig(filename)
 
 
   end
