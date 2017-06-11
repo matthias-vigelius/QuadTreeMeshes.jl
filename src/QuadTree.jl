@@ -28,7 +28,7 @@ end
 type QuadTree{T}
 
   elements::Array{QuadTreeElement, 1}
-  values::Array{Array{T, 1}, 1}
+  values::Array{Nullable{T}, 1}
   vertices::Array{Point, 1}
 
   function QuadTree(bb::GeometryTypes.SimpleRectangle{Float64})
@@ -54,7 +54,7 @@ type QuadTree{T}
       1,
       1, 2, 3, 4
     )
-    new([root], [[]], initialVertices)
+    new([root], [Nullable{T}()], initialVertices)
   end
 end
 
@@ -74,7 +74,7 @@ function push_new_element!(qt::QuadTree, bbbl::vertex_index, bbbr::vertex_index,
     bbbl, bbbr, bbtl, bbtr
   )
   push!(qt.elements, nwEl)
-  push!(qt.values, [])
+  push!(qt.values, Nullable{T}())
 
   childrenCreated(nwEl)
 end
@@ -204,6 +204,37 @@ function find_neighbour(qt::QuadTree, eli::ElIndex, dir::DIR)
 end
 
 """
+   get_half_vertex(qt::QuadTree, elIndex::Int, neighbour::ElIndex, dir::DIR)
+
+Returns the vertex index of the half-grid point of element `elIndex` in
+direction `dir`.
+"""
+function get_half_vertex(qt::QuadTree, elIndex::Int, neighbour::ElIndex, dir::DIR)
+  neighbourEl = qt.elements[get(neighbour)]
+  if dir == north
+    seChild = qt.elements[get(neighbourEl.southEast)]
+    swChild = qt.elements[get(neighbourEl.southWest)]
+    assert(seChild.bbLeftBottomIndex == swChild.bbRightBottomIndex)
+    return seChild.bbLeftBottomIndex
+  elseif dir == south
+    neChild = qt.elements[get(neighbourEl.northEast)]
+    nwChild = qt.elements[get(neighbourEl.northWest)]
+    assert(nwChild.bbRightTopIndex == neChild.bbLeftTopIndex)
+    return nwChild.bbRightTopIndex
+  elseif dir == west
+    neChild = qt.elements[get(neighbourEl.northEast)]
+    seChild = qt.elements[get(neighbourEl.southEast)]
+    assert(neChild.bbRightBottomIndex == seChild.bbRightTopIndex)
+    return neChild.bbRightBottomIndex
+  elseif dir == east
+    nwChild = qt.elements[get(neighbourEl.northWest)]
+    swChild = qt.elements[get(neighbourEl.southWest)]
+    assert(nwChild.bbLeftBottomIndex == swChild.bbLeftTopIndex)
+    return nwChild.bbLeftBottomIndex
+  end
+end
+
+"""
     get_new_center(qt::QuadTree, elIndex::Int, dir::DIR)
 
 If the boundary in direction `dir` is currently undivided, it adds a new
@@ -232,28 +263,7 @@ function get_new_center(qt::QuadTree, elIndex::Int, dir::DIR)
   end
 
   # need to return center index
-  neighbourEl = qt.elements[get(neighbour)]
-  if dir == north
-    seChild = qt.elements[get(neighbourEl.southEast)]
-    swChild = qt.elements[get(neighbourEl.southWest)]
-    assert(seChild.bbLeftBottomIndex == swChild.bbRightBottomIndex)
-    return seChild.bbLeftBottomIndex
-  elseif dir == south
-    neChild = qt.elements[get(neighbourEl.northEast)]
-    nwChild = qt.elements[get(neighbourEl.northWest)]
-    assert(nwChild.bbRightTopIndex == neChild.bbLeftTopIndex)
-    return nwChild.bbRightTopIndex
-  elseif dir == west
-    neChild = qt.elements[get(neighbourEl.northEast)]
-    seChild = qt.elements[get(neighbourEl.southEast)]
-    assert(neChild.bbRightBottomIndex == seChild.bbRightTopIndex)
-    return neChild.bbRightBottomIndex
-  elseif dir == east
-    nwChild = qt.elements[get(neighbourEl.northWest)]
-    swChild = qt.elements[get(neighbourEl.southWest)]
-    assert(nwChild.bbLeftBottomIndex == swChild.bbLeftTopIndex)
-    return nwChild.bbLeftBottomIndex
-  end
+  return get_half_vertex(qt, elIndex, neighbour, dir)
 end
 
 """
