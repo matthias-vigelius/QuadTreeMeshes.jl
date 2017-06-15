@@ -96,6 +96,7 @@ function triangulate_leave(mesh::QuadTreeMesh, elIndex::ElIndex)
     leave_vertex_indices[15] = get_half_vertex(qt, elIndex, get(neighbour), west)
   end
 
+
   # add triangulation templates to triangle list
   templates = inner_templates[shape_index + 1]
   indices = Array{Int64, 1}()

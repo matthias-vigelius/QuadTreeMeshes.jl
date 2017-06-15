@@ -62,7 +62,7 @@ function has_child(qt::QuadTree, elIndex::ElIndex)
   return !isnull(qt.elements[elIndex].northWest)
 end
 
-function push_new_element!(qt::QuadTree, bbbl::vertex_index, bbbr::vertex_index, bbtl::vertex_index, bbtr::vertex_index, newLevel::Int, newIndex::Int, elIndex::Int, childrenCreated)
+function push_new_element!{T}(qt::QuadTree{T}, bbbl::vertex_index, bbbr::vertex_index, bbtl::vertex_index, bbtr::vertex_index, newLevel::Int, newIndex::Int, elIndex::Int, childrenCreated)
   nwEl = QuadTreeElement(
     Nullable{Int}(elIndex),
     Nullable{Int}(),
@@ -210,7 +210,7 @@ Returns the vertex index of the half-grid point of element `elIndex` in
 direction `dir`.
 """
 function get_half_vertex(qt::QuadTree, elIndex::Int, neighbour::ElIndex, dir::DIR)
-  neighbourEl = qt.elements[get(neighbour)]
+  neighbourEl = qt.elements[neighbour]
   if dir == north
     seChild = qt.elements[get(neighbourEl.southEast)]
     swChild = qt.elements[get(neighbourEl.southWest)]
@@ -263,7 +263,7 @@ function get_new_center(qt::QuadTree, elIndex::Int, dir::DIR)
   end
 
   # need to return center index
-  return get_half_vertex(qt, elIndex, neighbour, dir)
+  return get_half_vertex(qt, elIndex, get(neighbour), dir)
 end
 
 """

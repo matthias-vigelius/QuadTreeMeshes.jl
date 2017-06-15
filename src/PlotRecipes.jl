@@ -18,7 +18,7 @@ using RecipesBase
     append!(y, ye)
   end
 
-  x, y
+  "x" => x , "y" => y
 end
 
 @recipe function f(mesh::QuadTreeMeshes.QuadTreeMesh)
