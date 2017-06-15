@@ -58,16 +58,10 @@ draw((shift(myshift(2,2)) * scale(mscale)*n
       -- shift(myshift(2,2)) * scale(mscale)*c));
 draw((shift(myshift(2,2)) * scale(mscale)*nee
       -- shift(myshift(2,2)) * scale(mscale)*c));
-draw((shift(myshift(2,2)) * scale(mscale)*e
-      -- shift(myshift(2,2)) * scale(mscale)*c), dashed);
 draw((shift(myshift(2,2)) * scale(mscale)*se
       -- shift(myshift(2,2)) * scale(mscale)*c));
-draw((shift(myshift(2,2)) * scale(mscale)*s
-      -- shift(myshift(2,2)) * scale(mscale)*c), dashed);
 draw((shift(myshift(2,2)) * scale(mscale)*sw
       -- shift(myshift(2,2)) * scale(mscale)*c));
-draw((shift(myshift(2,2)) * scale(mscale)*w
-      -- shift(myshift(2,2)) * scale(mscale)*c), dashed);
 draw((shift(myshift(2,2)) * scale(mscale)*nw
       -- shift(myshift(2,2)) * scale(mscale)*c));
 
@@ -81,16 +75,12 @@ draw((shift(myshift(sx, sy)) * scale(mscale)*n
       ), red);
 draw((shift(myshift(sx, sy)) * scale(mscale)*n
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*e
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*se
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*s
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*sw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*w
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
+draw((shift(myshift(sx, sy)) * scale(mscale)*e
+      -- shift(myshift(sx, sy)) * scale(mscale)*c));
 draw((shift(myshift(sx, sy)) * scale(mscale)*nw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
 
@@ -102,20 +92,14 @@ dot(Label("SEE"), shift(myshift(sx, sy)) * scale(mscale)*see, red);
 draw((shift(myshift(sx, sy)) * scale(mscale)*n
       -- shift(myshift(sx, sy)) * scale(mscale)*see
       ), red);
+draw((shift(myshift(sx, sy)) * scale(mscale)*n
+      -- shift(myshift(sx, sy)) * scale(mscale)*s));
 draw((shift(myshift(sx, sy)) * scale(mscale)*see
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*n
-      -- shift(myshift(sx, sy)) * scale(mscale)*e), dashed);
-draw((shift(myshift(sx, sy)) * scale(mscale)*n
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*see
       -- shift(myshift(sx, sy)) * scale(mscale)*s));
-draw((shift(myshift(sx, sy)) * scale(mscale)*s
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*sw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*w
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*nw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
 
@@ -123,22 +107,16 @@ sx = 1;
 sy = 2;
 draw(mySquare(sx, sy));
 dot(Label("N"), shift(myshift(sx, sy)) * scale(mscale)*n, red);
-dot(Label("SEE"), shift(myshift(sx, sy)) * scale(mscale)*see, red);
+dot(Label("SE"), shift(myshift(sx, sy)) * scale(mscale)*se, red);
 draw((shift(myshift(sx, sy)) * scale(mscale)*n
       -- shift(myshift(sx, sy)) * scale(mscale)*se
       ), red);
 draw((shift(myshift(sx, sy)) * scale(mscale)*n
-      -- shift(myshift(sx, sy)) * scale(mscale)*e), dashed);
-draw((shift(myshift(sx, sy)) * scale(mscale)*n
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
 draw((shift(myshift(sx, sy)) * scale(mscale)*se
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*s
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*sw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*w
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*nw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
 
@@ -151,23 +129,15 @@ draw((shift(myshift(sx, sy)) * scale(mscale)*n
       -- shift(myshift(sx, sy)) * scale(mscale)*sse
       ), red);
 draw((shift(myshift(sx, sy)) * scale(mscale)*n
-      -- shift(myshift(sx, sy)) * scale(mscale)*e), dashed);
-draw((shift(myshift(sx, sy)) * scale(mscale)*n
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
 draw((shift(myshift(sx, sy)) * scale(mscale)*sse
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*s
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*sw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*w
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*nw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
 draw((shift(myshift(sx, sy)) * scale(mscale)*sse
-      -- shift(myshift(sx, sy)) * scale(mscale)*e), dashed);
-draw((shift(myshift(sx, sy)) * scale(mscale)*sse
-      -- shift(myshift(sx, sy)) * scale(mscale)*ne), dotted);
+      -- shift(myshift(sx, sy)) * scale(mscale)*ne));
 
 sx = 2;
 sy = 3;
@@ -177,16 +147,12 @@ dot(Label("S"), shift(myshift(sx, sy)) * scale(mscale)*s, red);
 draw((shift(myshift(sx, sy)) * scale(mscale)*n
       -- shift(myshift(sx, sy)) * scale(mscale)*s
       ), red);
-draw((shift(myshift(sx, sy)) * scale(mscale)*c
-      -- shift(myshift(sx, sy)) * scale(mscale)*e), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*sw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
 draw((shift(myshift(sx, sy)) * scale(mscale)*ne
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
 draw((shift(myshift(sx, sy)) * scale(mscale)*se
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
-draw((shift(myshift(sx, sy)) * scale(mscale)*w
-      -- shift(myshift(sx, sy)) * scale(mscale)*c), dashed);
 draw((shift(myshift(sx, sy)) * scale(mscale)*nw
       -- shift(myshift(sx, sy)) * scale(mscale)*c));
 
