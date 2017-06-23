@@ -275,7 +275,7 @@ Subdivides quadtree element denoted by `elIndex`.
 * If necessary, its neighbours are subdivided as well in order to balance the
   tree.
 * The element needs to be a leave, i.e. it cannot have any children.
-* `childrenCreated(el::QuadTreeElement)` will be called for each new leave that is created
+* `childrenCreated(qt::QuadTree, el::QuadTreeElement)` will be called for each cell that was subdivided
 """
 function subdivide!(qt::QuadTree, elIndex::Int, childrenCreated)
   qtEl = qt.elements[elIndex]
@@ -303,24 +303,26 @@ function subdivide!(qt::QuadTree, elIndex::Int, childrenCreated)
   newIndex = length(qt.elements) + 1
 
   # northWest
-  push_new_element!(qt, westCenterIndex, newCenterIndex, qtEl.bbLeftTopIndex, northCenterIndex, newLevel, newIndex, elIndex, childrenCreated)
+  push_new_element!(qt, westCenterIndex, newCenterIndex, qtEl.bbLeftTopIndex, northCenterIndex, newLevel, newIndex, elIndex)
   qtEl.northWest = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
   # northEast
-  push_new_element!(qt, newCenterIndex, eastCenterIndex, northCenterIndex, qtEl.bbRightTopIndex, newLevel, newIndex, elIndex, childrenCreated)
+  push_new_element!(qt, newCenterIndex, eastCenterIndex, northCenterIndex, qtEl.bbRightTopIndex, newLevel, newIndex, elIndex)
   qtEl.northEast = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
   # southWest
-  push_new_element!(qt, qtEl.bbLeftBottomIndex, southCenterIndex, westCenterIndex, newCenterIndex, newLevel, newIndex, elIndex, childrenCreated)
+  push_new_element!(qt, qtEl.bbLeftBottomIndex, southCenterIndex, westCenterIndex, newCenterIndex, newLevel, newIndex, elIndex)
   qtEl.southWest = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
 
   # southEast
-  push_new_element!(qt, southCenterIndex, qtEl.bbRightBottomIndex, newCenterIndex, eastCenterIndex, newLevel, newIndex, elIndex, childrenCreated)
+  push_new_element!(qt, southCenterIndex, qtEl.bbRightBottomIndex, newCenterIndex, eastCenterIndex, newLevel, newIndex, elIndex)
   qtEl.southEast = Nullable{Int}(newIndex)
   newIndex = newIndex + 1
+
+  childrenCreated(qt, elIndex)
 
   # look at this parent's neighbors and check if they need subdiving
   # we only admit a difference in 1 to neighbour's subdivision level
