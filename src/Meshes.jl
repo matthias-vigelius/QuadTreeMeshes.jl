@@ -217,14 +217,27 @@ type BoundaryVertices
   se_index::Nullable{vertex_index}
 end
 
-function find_intersection(mesh::QuadTreeMesh, vertex_1::vertex_index, vertex_2::vertex_index, test_segment::GeometryTypes.LineSegment)
+function find_intersection(mesh::QuadTreeMesh, vertex_1::vertex_index, vertex_2::vertex_index, test_vertex_1::vertex_index, test_vertex_2::vertex_index)
   # get line segment from vertices
   qt = mesh.quadtree
   element_segment = GeometryTypes.LineSegment(qt.vertices[vertex_1], qt.vertices[vertex_2])
 
+  test_segment = GeometryTypes.LineSegment(qt.vertices[test_vertex_1], qt.vertices[test_vertex_2])
   does_intersect, intersection = GeometryTypes.intersects(element_segment, test_segment)
   if (!does_intersect)
-    return Nullable{Tuple{Point, Bool}}()
+    return Nullable{Tuple{vertex_index, Bool}}()
+  end
+
+  # check if intersection point is one of the vertices
+  d1 = intersection - test_vertex_1
+  d2 = intersection - test_vertex_2
+  if (dot(d1,d1) < 1e-10
+    intersection_vertex = test_vertex_1
+  elseif dot(d2,d2) < 1e-10
+    intersection_vertex = test_vertex_2
+  else
+    push!(qt.vertices, intersection)
+    intersection_vertex = length(qt.vertices)
   end
 
   # we need to determine intersection direction
@@ -232,19 +245,19 @@ function find_intersection(mesh::QuadTreeMesh, vertex_1::vertex_index, vertex_2:
   dir_vertex_segment = (element_segment[2] - element_segment[1])
   dir_test_segment = (test_segment[2] - test_segment[1])
   if dir_vertex_segment[1] * dir_test_segment[1] > 0
-    return Nullable{Tuple{Point, Bool}}((intersection, true))
+    return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, true))
   elseif dir_vertex_segment[1] * dir_test_segment[1] < 0
-    return Nullable{Tuple{Point, Bool}}((intersection, false))
+    return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, false))
   end
   if dir_vertex_segment[2] * dir_test_segment[2] > 0
-    return Nullable{Tuple{Point, Bool}}((intersection, true))
+    return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, true))
   elseif dir_vertex_segment[2] * dir_test_segment[2] < 0
-    return Nullable{Tuple{Point, Bool}}((intersection, false))
+    return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, false))
   end
 
   # we should never get here
   @assert(false)
-  return Nullable{Tuple{Point, Bool}}()
+  return Nullable{Tuple{vertex_index, Bool}}()
 end
 
 function get_boundary_structure(mesh::QuadTreeMesh, elIndex::ElIndex, toVertex::Bool)
@@ -252,21 +265,7 @@ function get_boundary_structure(mesh::QuadTreeMesh, elIndex::ElIndex, toVertex::
   qt_element = qt.elements[elIndex]
   mesh_element = qt.values[elIndex]
 
-  # determine boundary line segment
-  if !isnull(element.center)
-    # TODO: add center vertex to corresponding element in structure
-    if toVertex
-      in_boundary = element.in_boundary
-      out_boundary = get(element_center)
-    else
-      in_boundary = get(element_center)
-      out_boundary = element.out_boundary
-    end
-  else
-    in_boundary = element.in_boundary
-    out_boundary = element.out_boundary
-  end
-  boundary_segment = GeometryTypes.LineSegment(qt.vertices[in_boundary], qt.vertices[out_boundary])
+  bv = BoundaryVertices()
 
   # new children
   nw_element = qt.elements[get(qt_element.northWest)]
@@ -274,7 +273,7 @@ function get_boundary_structure(mesh::QuadTreeMesh, elIndex::ElIndex, toVertex::
   sw_element = qt.elements[get(qt_element.southWest)]
   se_element = qt.elements[get(qt_element.southEast)]
 
-  # for all segments of inner elements compute intersections and add vertices if necessary
+  # all relevant vertices
   nw_vertex = qt_element.bbLeftTopIndex
   n_vertex = nw_element.bbRightTopIndex
   ne_vertex = ne_element.bbRightTopIndex
@@ -283,8 +282,55 @@ function get_boundary_structure(mesh::QuadTreeMesh, elIndex::ElIndex, toVertex::
   s_vertex = se_element.bbLeftBottomIndex
   sw_vertex = sw_element.bbLeftBottomIndex
   w_vertex = sw_element.bbLeftTopIndex
+  c_vertex = nw_element.bbRightBottomIndex
 
-  
+  # determine boundary line segment
+  if !isnull(element.center)
+    center_vertex = get(element_center)
+    center_position = qt.vertices[element_center]
+    if (center_position[1] <  (qt.vertices[n_vertex])[1])
+      if (center_position[2] <  (qt.vertices[c_vertex])[2])
+        bv.sw_index = Nullable{vertex_index}(center_vertex)
+      else
+        bv.nw_index = Nullable{vertex_index}(center_vertex)
+      end
+    else
+      if (center_position[2] <  (qt.vertices[c_vertex])[2])
+        bv.se_index = Nullable{vertex_index}(center_vertex)
+      else
+        bv.ne_index = Nullable{vertex_index}(center_vertex)
+      end
+      #TODO: what about equality..
+    end
+
+    if toVertex
+      in_boundary = element.in_boundary
+      out_boundary = element_center
+    else
+      in_boundary = element_center
+      out_boundary = element.out_boundary
+    end
+  else
+    in_boundary = element.in_boundary
+    out_boundary = element.out_boundary
+  end
+
+  # compute intersection position for all bounding box segments of inner children
+  bv.nnw_index = find_intersection(nw_vertex, n_vertex, in_boundary, out_boundary)
+  bv.nne_index = find_intersection(n_vertex, ne_vertex, in_boundary, out_boundary)
+  bv.nee_index = find_intersection(e_vertex, ne_vertex, in_boundary, out_boundary)
+  bv.see_index = find_intersection(se_vertex, e_vertex, in_boundary, out_boundary)
+  bv.sse_index = find_intersection(s_vertex, se_vertex, in_boundary, out_boundary)
+  bv.ssw_index = find_intersection(sw_vertex, s_vertex, in_boundary, out_boundary)
+  bv.sww_index = find_intersection(sw_vertex, w_vertex, in_boundary, out_boundary)
+  bv.nww_index = find_intersection(w_vertex, nw_vertex, in_boundary, out_boundary)
+
+  bv.nc_index = find_intersection(c_vertex, n_vertex, in_boundary, out_boundary)
+  bv.wc_index = find_intersection(w_vertex, c_vertex, in_boundary, out_boundary)
+  bv.ec_index = find_intersection(c_vertex, e_vertex, in_boundary, out_boundary)
+  bv.sc_index = find_intersection(s_vertex, c_vertex, in_boundary, out_boundary)
+
+  return bv
 end
 
 function update_boundary_from_index(test_index::Nullable{vertex_index}, relevant_in_boundary::Nullable{vertex_index}, relevant_out_boundary::Nullable{vertex_index}, invert_direction::Bool)
