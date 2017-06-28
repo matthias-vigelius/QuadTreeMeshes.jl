@@ -217,9 +217,8 @@ type BoundaryVertices
   se_index::Nullable{vertex_index}
 end
 
-function find_intersection(mesh::QuadTreeMesh, vertex_1::vertex_index, vertex_2::vertex_index, test_vertex_1::vertex_index, test_vertex_2::vertex_index)
+function find_intersection(qt::QuadTree, vertex_1::vertex_index, vertex_2::vertex_index, test_vertex_1::vertex_index, test_vertex_2::vertex_index)
   # get line segment from vertices
-  qt = mesh.quadtree
   element_segment = GeometryTypes.LineSegment(qt.vertices[vertex_1], qt.vertices[vertex_2])
 
   test_segment = GeometryTypes.LineSegment(qt.vertices[test_vertex_1], qt.vertices[test_vertex_2])
@@ -260,8 +259,7 @@ function find_intersection(mesh::QuadTreeMesh, vertex_1::vertex_index, vertex_2:
   return Nullable{Tuple{vertex_index, Bool}}()
 end
 
-function get_boundary_structure(mesh::QuadTreeMesh, elIndex::ElIndex, toVertex::Bool)
-  qt = mesh.quadtree
+function get_boundary_structure(qt::QuadTree, elIndex::ElIndex, toVertex::Bool)
   qt_element = qt.elements[elIndex]
   mesh_element = qt.values[elIndex]
 
@@ -351,8 +349,7 @@ function update_boundary_from_index(test_index::Nullable{vertex_index}, relevant
   return relevant_in_boundary, relevant_out_boundary
 end
 
-function update_child(mesh::QuadTreeMesh, elIndex::ElIndex, boundaries::BoundaryVertices)
-  qt = mesh.quadtree
+function update_child(qt::QuadTree, elIndex::ElIndex, boundaries::BoundaryVertices)
   leave_dir = get_leave_dir(qt, elIndex)
   element = qt.values[elIndex]
 
@@ -389,4 +386,40 @@ function update_child(mesh::QuadTreeMesh, elIndex::ElIndex, boundaries::Boundary
   element.in_boundary = relevant_in_boundary
   element.out_boundary = relevant_out_boundary
   element.center = relevant_vertex
+end
+
+"""
+  OnChildrenCreated(qt::QuadTree, elIndex::ElIndex)
+
+Will be called when quadtree element `elIndex` is subdivided. This method examines
+the element for boundaries and constraint vertices and propagates them to the
+children if necessary.
+
+# Remarks
+* A constraint vertex is moved into the corresponding child element
+* If a boundary is present, it is intersected with the bounding boxes of the inner
+  elements and the intersection vertices are stored in the child elements.
+"""
+function OnChildrenCreated(qt::QuadTree, elIndex::ElIndex)
+
+  mesh_element = qt.values[elIndex]
+
+  if isnull(mesh_element.center)
+    bs = get_boundary_structure(qt, elIndex, false)
+    update_child(qt, get(mesh_element.northWest), bs)
+    update_child(qt, get(mesh_element.northEast), bs)
+    update_child(qt, get(mesh_element.southWest), bs)
+    update_child(qt, get(mesh_element.southEast), bs)
+  else
+    bs = get_boundary_structure(qt, elIndex, true)
+    update_child(qt, get(mesh_element.northWest), bs)
+    update_child(qt, get(mesh_element.northEast), bs)
+    update_child(qt, get(mesh_element.southWest), bs)
+    update_child(qt, get(mesh_element.southEast), bs)
+    bs = get_boundary_structure(qt, elIndex, false)
+    update_child(qt, get(mesh_element.northWest), bs)
+    update_child(qt, get(mesh_element.northEast), bs)
+    update_child(qt, get(mesh_element.southWest), bs)
+    update_child(qt, get(mesh_element.southEast), bs)
+  end
 end

@@ -227,7 +227,7 @@
     filename = "subdivide_plot_$u$v.svg"
     Plots.plot(q)
     Plots.savefig(filename)
-    
+
     # check that all levels are correctly subdivided
     # (i.e. it is balanced)
     check_subdivision_levels(q)
