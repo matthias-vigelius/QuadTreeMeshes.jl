@@ -250,7 +250,7 @@ function find_intersection(qt::QuadTree, vertex_1::vertex_index, vertex_2::verte
   # check if intersection point is one of the vertices
   d1 = intersection - qt.vertices[vertex_1]
   d2 = intersection - qt.vertices[vertex_2]
-  println("$(intersection), $(qt.vertices[vertex_1]), $(qt.vertices[vertex_2])")
+  #println("$(intersection), $(qt.vertices[vertex_1]), $(qt.vertices[vertex_2])")
   if dot(d1,d1) < 1e-10
     intersection_vertex = vertex_1
   elseif dot(d2,d2) < 1e-10
@@ -378,30 +378,30 @@ function update_child(qt::QuadTree, elIndex::ElIndex, boundaries::BoundaryVertic
   relevant_out_boundary = Nullable{vertex_index}()
   relevant_vertex = Nullable{vertex_index}()
 
-  println("$boundaries")
+  #println("$boundaries")
   if leave_dir == northWest
-    println("Updating north west")
+    #println("Updating north west")
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nnw_index, relevant_in_boundary, relevant_out_boundary, true)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nww_index, relevant_in_boundary, relevant_out_boundary, false)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.wc_index, relevant_in_boundary, relevant_out_boundary, false)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nc_index, relevant_in_boundary, relevant_out_boundary, true)
     relevant_vertex = boundaries.nw_index
   elseif leave_dir == northEast
-    println("Updating north east")
+    #println("Updating north east")
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nne_index, relevant_in_boundary, relevant_out_boundary, true)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nee_index, relevant_in_boundary, relevant_out_boundary, true)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ec_index, relevant_in_boundary, relevant_out_boundary, false)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nc_index, relevant_in_boundary, relevant_out_boundary, false)
     relevant_vertex = boundaries.ne_index
   elseif leave_dir == southWest
-    println("Updating south west")
+    #println("Updating south west")
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ssw_index, relevant_in_boundary, relevant_out_boundary, false)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sww_index, relevant_in_boundary, relevant_out_boundary, false)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.wc_index, relevant_in_boundary, relevant_out_boundary, true)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sc_index, relevant_in_boundary, relevant_out_boundary, true)
     relevant_vertex = boundaries.sw_index
   elseif leave_dir == southEast
-    println("Updating south east")
+    #println("Updating south east")
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sse_index, relevant_in_boundary, relevant_out_boundary, false)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.see_index, relevant_in_boundary, relevant_out_boundary, true)
     relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ec_index, relevant_in_boundary, relevant_out_boundary, true)

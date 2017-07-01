@@ -3,10 +3,10 @@
     q2 = floor((b2index - 1)/4)
 
     if q1 != q2
-      b1index = 1
-      b2index = 9
+      #b1index = 1
+      #b2index = 9
 
-      println("------------------Testing ($(b1index), $(b2index))")
+      #println("------------------Testing ($(b1index), $(b2index))")
       # add boundaries to single element
       bb = GeometryTypes.SimpleRectangle(2.0, 3.0, 4.0, 4.0)
       mesh = QuadTreeMeshes.QuadTreeMesh(bb)
@@ -43,7 +43,7 @@
       mesh_element = get(qt.values[1])
       mesh_element.in_boundary = Nullable{QuadTreeMeshes.vertex_index}(vb1Index)
       mesh_element.out_boundary = Nullable{QuadTreeMeshes.vertex_index}(vb2Index)
-      println("$(qt.vertices[vb1Index]), $(qt.vertices[vb2Index])")
+      #println("$(qt.vertices[vb1Index]), $(qt.vertices[vb2Index])")
 
       # subdivide new element
       QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
@@ -60,16 +60,16 @@
 
         sb1, sb2 = qt.vertices[qt_element.bbLeftBottomIndex], qt.vertices[qt_element.bbRightBottomIndex]
         sb_intersects, sbi = GeometryTypes.intersects(bls, GeometryTypes.LineSegment(sb1, sb2))
-        println("$(sb_intersects), $(sbi)")
+        #println("$(sb_intersects), $(sbi)")
         eb1, eb2 = qt.vertices[qt_element.bbRightBottomIndex], qt.vertices[qt_element.bbRightTopIndex]
         eb_intersects, ebi = GeometryTypes.intersects(bls, GeometryTypes.LineSegment(eb1, eb2))
-        println("$(eb_intersects), $(ebi)")
+        #println("$(eb_intersects), $(ebi)")
         nb1, nb2 = qt.vertices[qt_element.bbRightTopIndex], qt.vertices[qt_element.bbLeftTopIndex]
         nb_intersects, nbi = GeometryTypes.intersects(bls, GeometryTypes.LineSegment(nb1, nb2))
-        println("$(nb_intersects), $(nbi)")
+        #println("$(nb_intersects), $(nbi)")
         wb1, wb2 = qt.vertices[qt_element.bbLeftBottomIndex], qt.vertices[qt_element.bbLeftTopIndex]
         wb_intersects, wbi = GeometryTypes.intersects(bls, GeometryTypes.LineSegment(wb1, wb2))
-        println("$(wb_intersects), $(wbi)")
+        #println("$(wb_intersects), $(wbi)")
         if sb_intersects
           push!(tinterPoints, sbi)
         end
@@ -82,7 +82,6 @@
         if wb_intersects
           push!(tinterPoints, wbi)
         end
-
 
         # remove duplicates
         interPoints = Array{QuadTreeMeshes.Point, 1}()
@@ -97,10 +96,9 @@
             push!(interPoints, tp)
           end
         end
-        println("$(interPoints), $(tinterPoints)")
 
         npoints = length(interPoints)
-        @assert(npoints == 0 || npoints == 2)
+        @assert(npoints == 0 || npoints == 1 || npoints == 2)
         if npoints == 2
           if vecnorm(interPoints[1] - b1) < vecnorm(interPoints[2] - b1)
             ip1 = interPoints[1]
@@ -112,9 +110,18 @@
           @assert(!isnull(mesh_element.in_boundary))
           @assert(!isnull(mesh_element.out_boundary))
           ib, ob = qt.vertices[get(mesh_element.in_boundary)], qt.vertices[get(mesh_element.out_boundary)]
-          println("$(ip1), $(ib), $(ip2), $(ob)")
           @test(vecnorm(ip1 - ib) < 1e-10)
           @test(vecnorm(ip2 - ob) < 1e-10)
+          @test(isnull(mesh_element.center))
+        elseif npoints == 1
+          # it is just touching the corner
+          ip1 = interPoints[1]
+          @assert(!isnull(mesh_element.in_boundary))
+          @assert(!isnull(mesh_element.out_boundary))
+          @test(get(mesh_element.in_boundary) == get(mesh_element.out_boundary))
+          ib, ob = qt.vertices[get(mesh_element.in_boundary)], qt.vertices[get(mesh_element.out_boundary)]
+          @test(vecnorm(ip1 - ib) < 1e-10)
+          @test(vecnorm(ip1 - ob) < 1e-10)
           @test(isnull(mesh_element.center))
         else
           @test(isnull(mesh_element.in_boundary))
