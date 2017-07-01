@@ -62,7 +62,7 @@ function has_child(qt::QuadTree, elIndex::ElIndex)
   return !isnull(qt.elements[elIndex].northWest)
 end
 
-function push_new_element!{T}(qt::QuadTree{T}, bbbl::vertex_index, bbbr::vertex_index, bbtl::vertex_index, bbtr::vertex_index, newLevel::Int, newIndex::Int, elIndex::Int, childrenCreated)
+function push_new_element!{T}(qt::QuadTree{T}, bbbl::vertex_index, bbbr::vertex_index, bbtl::vertex_index, bbtr::vertex_index, newLevel::Int, newIndex::Int, elIndex::Int)
   nwEl = QuadTreeElement(
     Nullable{Int}(elIndex),
     Nullable{Int}(),
@@ -75,8 +75,6 @@ function push_new_element!{T}(qt::QuadTree{T}, bbbl::vertex_index, bbbr::vertex_
   )
   push!(qt.elements, nwEl)
   push!(qt.values, Nullable{T}())
-
-  childrenCreated(nwEl)
 end
 
 function get_children(qt::QuadTree, elIndex::Int)

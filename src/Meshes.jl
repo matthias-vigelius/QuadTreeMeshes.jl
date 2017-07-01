@@ -3,14 +3,15 @@
 type MeshElement
   triangle_indices::Array{triangle_index, 1}
 
-  boundary_element::Boundary
+  boundary_type::Boundary
+
   center::Nullable{vertex_index}
   in_boundary::Nullable{vertex_index}
   out_boundary::Nullable{vertex_index}
 end
 
 type Triangle
-  vertex_indices::FixedSizeArrays.Vec{3, vertex_index}
+  vertex_indices::Array{vertex_index, 1}
 end
 
 # these provide indices into the connectors array for each inner template
@@ -217,6 +218,25 @@ type BoundaryVertices
   se_index::Nullable{vertex_index}
 end
 
+BoundaryVertices() = BoundaryVertices(
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{Tuple{vertex_index, Bool}}(),
+  Nullable{vertex_index}(),
+  Nullable{vertex_index}(),
+  Nullable{vertex_index}(),
+  Nullable{vertex_index}()
+  )
+
 function find_intersection(qt::QuadTree, vertex_1::vertex_index, vertex_2::vertex_index, test_vertex_1::vertex_index, test_vertex_2::vertex_index)
   # get line segment from vertices
   element_segment = GeometryTypes.LineSegment(qt.vertices[vertex_1], qt.vertices[vertex_2])
@@ -230,7 +250,7 @@ function find_intersection(qt::QuadTree, vertex_1::vertex_index, vertex_2::verte
   # check if intersection point is one of the vertices
   d1 = intersection - test_vertex_1
   d2 = intersection - test_vertex_2
-  if (dot(d1,d1) < 1e-10
+  if dot(d1,d1) < 1e-10
     intersection_vertex = test_vertex_1
   elseif dot(d2,d2) < 1e-10
     intersection_vertex = test_vertex_2
@@ -243,14 +263,15 @@ function find_intersection(qt::QuadTree, vertex_1::vertex_index, vertex_2::verte
   # note that test segments are axis-aligned and only have positive components
   dir_vertex_segment = (element_segment[2] - element_segment[1])
   dir_test_segment = (test_segment[2] - test_segment[1])
-  if dir_vertex_segment[1] * dir_test_segment[1] > 0
+  #      TODO dot(dir_vertex_segment, dir_test_segment) > 0
+  if dir_vertex_segment[1] * dir_test_segment[2] > 0
     return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, true))
-  elseif dir_vertex_segment[1] * dir_test_segment[1] < 0
+  elseif dir_vertex_segment[1] * dir_test_segment[2] < 0
     return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, false))
   end
-  if dir_vertex_segment[2] * dir_test_segment[2] > 0
+  if dir_vertex_segment[2] * dir_test_segment[1] > 0
     return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, true))
-  elseif dir_vertex_segment[2] * dir_test_segment[2] < 0
+  elseif dir_vertex_segment[2] * dir_test_segment[1] < 0
     return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, false))
   end
 
@@ -261,7 +282,7 @@ end
 
 function get_boundary_structure(qt::QuadTree, elIndex::ElIndex, toVertex::Bool)
   qt_element = qt.elements[elIndex]
-  mesh_element = qt.values[elIndex]
+  mesh_element = get(qt.values[elIndex])
 
   bv = BoundaryVertices()
 
@@ -283,9 +304,9 @@ function get_boundary_structure(qt::QuadTree, elIndex::ElIndex, toVertex::Bool)
   c_vertex = nw_element.bbRightBottomIndex
 
   # determine boundary line segment
-  if !isnull(element.center)
-    center_vertex = get(element_center)
-    center_position = qt.vertices[element_center]
+  if !isnull(mesh_element.center)
+    center_vertex = get(mesh_element.center)
+    center_position = qt.vertices[mesh_element.center]
     if (center_position[1] <  (qt.vertices[n_vertex])[1])
       if (center_position[2] <  (qt.vertices[c_vertex])[2])
         bv.sw_index = Nullable{vertex_index}(center_vertex)
@@ -302,36 +323,36 @@ function get_boundary_structure(qt::QuadTree, elIndex::ElIndex, toVertex::Bool)
     end
 
     if toVertex
-      in_boundary = element.in_boundary
-      out_boundary = element_center
+      in_boundary = mesh_element.in_boundary
+      out_boundary = mesh_element.center
     else
-      in_boundary = element_center
-      out_boundary = element.out_boundary
+      in_boundary = mesh_element.center
+      out_boundary = mesh_element.out_boundary
     end
   else
-    in_boundary = element.in_boundary
-    out_boundary = element.out_boundary
+    in_boundary = mesh_element.in_boundary
+    out_boundary = mesh_element.out_boundary
   end
 
   # compute intersection position for all bounding box segments of inner children
-  bv.nnw_index = find_intersection(nw_vertex, n_vertex, in_boundary, out_boundary)
-  bv.nne_index = find_intersection(n_vertex, ne_vertex, in_boundary, out_boundary)
-  bv.nee_index = find_intersection(e_vertex, ne_vertex, in_boundary, out_boundary)
-  bv.see_index = find_intersection(se_vertex, e_vertex, in_boundary, out_boundary)
-  bv.sse_index = find_intersection(s_vertex, se_vertex, in_boundary, out_boundary)
-  bv.ssw_index = find_intersection(sw_vertex, s_vertex, in_boundary, out_boundary)
-  bv.sww_index = find_intersection(sw_vertex, w_vertex, in_boundary, out_boundary)
-  bv.nww_index = find_intersection(w_vertex, nw_vertex, in_boundary, out_boundary)
+  bv.nnw_index = find_intersection(qt, nw_vertex, n_vertex, get(in_boundary), get(out_boundary))
+  bv.nne_index = find_intersection(qt, n_vertex, ne_vertex, get(in_boundary), get(out_boundary))
+  bv.nee_index = find_intersection(qt, e_vertex, ne_vertex, get(in_boundary), get(out_boundary))
+  bv.see_index = find_intersection(qt, se_vertex, e_vertex, get(in_boundary), get(out_boundary))
+  bv.sse_index = find_intersection(qt, s_vertex, se_vertex, get(in_boundary), get(out_boundary))
+  bv.ssw_index = find_intersection(qt, sw_vertex, s_vertex, get(in_boundary), get(out_boundary))
+  bv.sww_index = find_intersection(qt, sw_vertex, w_vertex, get(in_boundary), get(out_boundary))
+  bv.nww_index = find_intersection(qt, w_vertex, nw_vertex, get(in_boundary), get(out_boundary))
 
-  bv.nc_index = find_intersection(c_vertex, n_vertex, in_boundary, out_boundary)
-  bv.wc_index = find_intersection(w_vertex, c_vertex, in_boundary, out_boundary)
-  bv.ec_index = find_intersection(c_vertex, e_vertex, in_boundary, out_boundary)
-  bv.sc_index = find_intersection(s_vertex, c_vertex, in_boundary, out_boundary)
+  bv.nc_index = find_intersection(qt, c_vertex, n_vertex, get(in_boundary), get(out_boundary))
+  bv.wc_index = find_intersection(qt, w_vertex, c_vertex, get(in_boundary), get(out_boundary))
+  bv.ec_index = find_intersection(qt, c_vertex, e_vertex, get(in_boundary), get(out_boundary))
+  bv.sc_index = find_intersection(qt, s_vertex, c_vertex, get(in_boundary), get(out_boundary))
 
   return bv
 end
 
-function update_boundary_from_index(test_index::Nullable{vertex_index}, relevant_in_boundary::Nullable{vertex_index}, relevant_out_boundary::Nullable{vertex_index}, invert_direction::Bool)
+function update_boundary_from_index(test_index::Nullable{Tuple{vertex_index, Bool}}, relevant_in_boundary::Nullable{vertex_index}, relevant_out_boundary::Nullable{vertex_index}, invert_direction::Bool)
   if !isnull(test_index)
     bi, dir = get(test_index)
     if (invert_direction)
@@ -351,41 +372,40 @@ end
 
 function update_child(qt::QuadTree, elIndex::ElIndex, boundaries::BoundaryVertices)
   leave_dir = get_leave_dir(qt, elIndex)
-  element = qt.values[elIndex]
 
   relevant_in_boundary = Nullable{vertex_index}()
   relevant_out_boundary = Nullable{vertex_index}()
   relevant_vertex = Nullable{vertex_index}()
 
   if leave_dir == northWest
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nnw_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nww_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.wc, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nc, relevant_in_boundary, relevant_out_boundary, false)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nnw_index, relevant_in_boundary, relevant_out_boundary, true)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nww_index, relevant_in_boundary, relevant_out_boundary, false)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.wc_index, relevant_in_boundary, relevant_out_boundary, false)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nc_index, relevant_in_boundary, relevant_out_boundary, true)
     relevant_vertex = boundaries.nw_index
   elseif leave_dir == northEast
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nne_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nee_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ec, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nc, relevant_in_boundary, relevant_out_boundary, true)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nne_index, relevant_in_boundary, relevant_out_boundary, true)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nee_index, relevant_in_boundary, relevant_out_boundary, true)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ec_index, relevant_in_boundary, relevant_out_boundary, false)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nc_index, relevant_in_boundary, relevant_out_boundary, false)
     relevant_vertex = boundaries.ne_index
   elseif leave_dir == southWest
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ssw_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sww_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.wc, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sc, relevant_in_boundary, relevant_out_boundary, false)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ssw_index, relevant_in_boundary, relevant_out_boundary, false)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sww_index, relevant_in_boundary, relevant_out_boundary, false)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.wc_index, relevant_in_boundary, relevant_out_boundary, true)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sc_index, relevant_in_boundary, relevant_out_boundary, true)
     relevant_vertex = boundaries.sw_index
   elseif leave_dir == southEast
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sse_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.see_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ec, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sc, relevant_in_boundary, relevant_out_boundary, true)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sse_index, relevant_in_boundary, relevant_out_boundary, false)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.see_index, relevant_in_boundary, relevant_out_boundary, true)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ec_index, relevant_in_boundary, relevant_out_boundary, true)
+    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sc_index, relevant_in_boundary, relevant_out_boundary, false)
     relevant_vertex = boundaries.se_index
   end
 
-  element.in_boundary = relevant_in_boundary
-  element.out_boundary = relevant_out_boundary
-  element.center = relevant_vertex
+  # create new element containing only the boundaries
+  new_mesh_element = MeshElement(Array{triangle_index, 1}(), None, relevant_vertex, relevant_in_boundary, relevant_out_boundary)
+  qt.values[elIndex] = Nullable(new_mesh_element)
 end
 
 """
@@ -402,24 +422,25 @@ children if necessary.
 """
 function OnChildrenCreated(qt::QuadTree, elIndex::ElIndex)
 
-  mesh_element = qt.values[elIndex]
+  mesh_element = get(qt.values[elIndex])
+  qt_element = qt.elements[elIndex]
 
   if isnull(mesh_element.center)
     bs = get_boundary_structure(qt, elIndex, false)
-    update_child(qt, get(mesh_element.northWest), bs)
-    update_child(qt, get(mesh_element.northEast), bs)
-    update_child(qt, get(mesh_element.southWest), bs)
-    update_child(qt, get(mesh_element.southEast), bs)
+    update_child(qt, get(qt_element.northWest), bs)
+    update_child(qt, get(qt_element.northEast), bs)
+    update_child(qt, get(qt_element.southWest), bs)
+    update_child(qt, get(qt_element.southEast), bs)
   else
     bs = get_boundary_structure(qt, elIndex, true)
-    update_child(qt, get(mesh_element.northWest), bs)
-    update_child(qt, get(mesh_element.northEast), bs)
-    update_child(qt, get(mesh_element.southWest), bs)
-    update_child(qt, get(mesh_element.southEast), bs)
+    update_child(qt, get(qt_element.northWest), bs)
+    update_child(qt, get(qt_element.northEast), bs)
+    update_child(qt, get(qt_element.southWest), bs)
+    update_child(qt, get(qt_element.southEast), bs)
     bs = get_boundary_structure(qt, elIndex, false)
-    update_child(qt, get(mesh_element.northWest), bs)
-    update_child(qt, get(mesh_element.northEast), bs)
-    update_child(qt, get(mesh_element.southWest), bs)
-    update_child(qt, get(mesh_element.southEast), bs)
+    update_child(qt, get(qt_element.northWest), bs)
+    update_child(qt, get(qt_element.northEast), bs)
+    update_child(qt, get(qt_element.southWest), bs)
+    update_child(qt, get(qt_element.southEast), bs)
   end
 end
