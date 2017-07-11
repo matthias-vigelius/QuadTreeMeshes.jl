@@ -1,4 +1,4 @@
-@testset "Update boundaries" begin for b1index in 1:16, b2index in 1:16 begin
+@testset "Update boundaries with vertices" begin for b1index in 1:16, b2index in 1:16 begin, vindex in 1:4 begin
     q1 = floor((b1index - 1)/4)
     q2 = floor((b2index - 1)/4)
 
@@ -137,5 +137,6 @@
       check_child_element(get(qtEl.southEast))
     end
   end
+end
 end
 end

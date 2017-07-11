@@ -191,6 +191,131 @@ function triangulate_boundary_leave(mesh::QuadTreeMesh, elIndex::ElIndex, bnd1In
   qt.values[elIndex] = Nullable{QuadTreeMeshes.MeshElement}(new_mesh_element)
 end
 
+function get_vertex_pos_on_boundary(cp::Point, bd::Point)
+  if bd[1] < cp[1]
+    if bd[2] < cp[2]
+      return northWest
+    else
+      return southWest
+    end
+  else
+    if bd[2] < cp[2]
+      return northEast
+    else
+      return southEast
+    end
+  end
+end
+
+function triangulate_boundary_leave_with_vertex(mesh::QuadTreeMesh, elIndex::ElIndex, bnd1Index::vertex_index, bnd2Index::vertex_index, vIndex::vertex_index)
+  qt = mesh.quadtree
+  qtEl = qt.elements[elIndex]
+  @assert(!has_child(qt, elIndex))
+  @assert(isnull(qt.values[elIndex]))
+
+  # TODO:
+  # - get center point and determine position of boundary points
+  # - create triangles nw - v - ne or nw - v - b/v - ne - b
+  #   and accordingly for all other segments
+  # TODO: what about two boundary vertices on same element? disallow for now.
+
+  # TODO: remove for production
+  # boundary leaves cannot have half-grid points
+  neighbour = find_neighbour(qt, elIndex, south)
+  assert(isnull(neighbour) || !has_child(qt, get(neighbour)))
+  neighbour = find_neighbour(qt, elIndex, north)
+  assert(isnull(neighbour) || !has_child(qt, get(neighbour)))
+  neighbour = find_neighbour(qt, elIndex, west)
+  assert(isnull(neighbour) || !has_child(qt, get(neighbour)))
+  neighbour = find_neighbour(qt, elIndex, east)
+  assert(isnull(neighbour) || !has_child(qt, get(neighbour)))
+
+  # get center point and determine position of boundary leave
+  rt = qt.vertices[qtEl.bbRightTopIndex]
+  lb = qt.vertices[qtEl.bbLeftBottomIndex]
+  c = 0.5 * (rt + lb)
+  bd1pos = get_vertex_pos_on_boundary(c, qt.vertices[bnd1Index])
+  bd2pos = get_vertex_pos_on_boundary(c, qt.vertices[bnd2Index])
+
+  triangleIndices = Array{Int64, 1}()
+  @assert(bd1Pos != northWest || bd2pos != northWest)
+  if bd1pos != northWest && bd2pos != northWest
+      triangle = Triangle(qtEl.bbLeftTopIndex, vIndex, qtEl.bbRightTopIndex)
+      push!(mesh.triangles, triangle)
+      push!(indices, length(mesh.triangles))
+  else
+    if bd1pos == northWest
+      bdIndex = bnd1Index
+    else
+      bdIndex = bnd2Index
+    end
+    triangle = Triangle(qtEl.bbLeftTopIndex, vIndex, bdIndex)
+    push!(mesh.triangles, triangle)
+    push!(indices, length(mesh.triangles))
+    triangle = Triangle(qtEl.bbRightTopIndex, bdIndex, vIndex)
+    push!(mesh.triangles, triangle)
+    push!(indices, length(mesh.triangles))
+  end
+  @assert(bd1Pos != northEast || bd2pos != northEast)
+  if bd1pos != northEast && bd2pos != northEast
+      triangle = Triangle(qtEl.bbLeftTopIndex, vIndex, qtEl.bbRightTopIndex)
+      push!(mesh.triangles, triangle)
+      push!(indices, length(mesh.triangles))
+  else
+    if bd1pos == northEast
+      bdIndex = bnd1Index
+    else
+      bdIndex = bnd2Index
+    end
+    triangle = Triangle(qtEl.bbLeftTopIndex, vIndex, bdIndex)
+    push!(mesh.triangles, triangle)
+    push!(indices, length(mesh.triangles))
+    triangle = Triangle(qtEl.bbRightTopIndex, bdIndex, vIndex)
+    push!(mesh.triangles, triangle)
+    push!(indices, length(mesh.triangles))
+  end
+  @assert(bd1Pos != southWest || bd2pos != southWest)
+  if bd1pos != southWest && bd2pos != southWest
+      triangle = Triangle(qtEl.bbLeftBottomIndex, vIndex, qtEl.bbRightBottomIndex)
+      push!(mesh.triangles, triangle)
+      push!(indices, length(mesh.triangles))
+  else
+    if bd1pos == southWest
+      bdIndex = bnd1Index
+    else
+      bdIndex = bnd2Index
+    end
+    triangle = Triangle(qtEl.bbLeftBottomIndex, vIndex, bdIndex)
+    push!(mesh.triangles, triangle)
+    push!(indices, length(mesh.triangles))
+    triangle = Triangle(qtEl.bbRightBottomIndex, bdIndex, vIndex)
+    push!(mesh.triangles, triangle)
+    push!(indices, length(mesh.triangles))
+  end
+  @assert(bd1Pos != southEast || bd2pos != southEast)
+  if bd1pos != southEast && bd2pos != southEast
+      triangle = Triangle(qtEl.bbLeftBottomIndex, vIndex, qtEl.bbRightBottomIndex)
+      push!(mesh.triangles, triangle)
+      push!(indices, length(mesh.triangles))
+  else
+    if bd1pos == southEast
+      bdIndex = bnd1Index
+    else
+      bdIndex = bnd2Index
+    end
+    triangle = Triangle(qtEl.bbLeftBottomIndex, vIndex, bdIndex)
+    push!(mesh.triangles, triangle)
+    push!(indices, length(mesh.triangles))
+    triangle = Triangle(qtEl.bbRightBottomIndex, bdIndex, vIndex)
+    push!(mesh.triangles, triangle)
+    push!(indices, length(mesh.triangles))
+  end
+
+  # create new mesh element and add to list
+  new_mesh_element = MeshElement(indices, Center, Nullable{vertex_index}(vIndex), Nullable{vertex_index}(bnd1Index), Nullable{vertex_index}(bnd2Index))
+  qt.values[elIndex] = Nullable{QuadTreeMeshes.MeshElement}(new_mesh_element)
+end
+
 type BoundaryVertices
   # Bool:
   # for west and east boundaries: true = from south to north is outgoing
