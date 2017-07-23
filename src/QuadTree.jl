@@ -358,6 +358,27 @@ function get_element_bounding_box(qt::QuadTree, elIndex::ElIndex)
   return get_element_bounding_box(qt, qtEl)
 end
 
+function get_child_position_from_coordinate(qt::QuadTree, qtEl::ElIndex, coord::Point)
+  bb = get_element_bounding_box(qt, qtEl)
+  cx, cy = coord
+  xbl, ybl, w, h = r.x, r.y, r.x + r.w, r.y + r.h
+  @assert(cx >= bb.x && cx <= bb.x + bb.w && cy >= bb.y && cy <= bb.y + bb.h)
+  if cx >= bb.x + 0.5 * bb.w
+    if cy >= bb.y + 0.5 * bb.h
+      return northEast
+    else
+      return southEast
+    end
+  else
+    if cy >= bb.y + 0.5 * bb.h
+      return northWest
+    else
+      return southWest
+    end
+  end
+end
+
+
 function query(qt::QuadTree, testFunction, curElIndex::ElIndex, els::Array{ElIndex, 1})
   if !testFunction(get_element_bounding_box(qt, curElIndex))
     return els
@@ -461,4 +482,19 @@ function get_leave_dir(qt::QuadTree, eli::ElIndex)
     return southEast
   end
   error("Quadtree corruption: cannot locate element $eli in parent node.")
+end
+
+function get_leave_from_pos(qt::QuadTree, eli::ElIndx, pos::POS)
+  @assert(has_child(qt, eli))
+  el = qt.elements[eli]
+
+  if pos == northWest
+    return get(el.northWest)
+  elseif pos == northEast
+    return get(el.northEast)
+  elseif pos == southWest
+    return get(el.southWest)
+  elseif pos == southEast
+    return get(el.southEast)
+  end
 end

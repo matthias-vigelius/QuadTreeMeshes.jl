@@ -1,13 +1,21 @@
 @enum Boundary None=1 Sides=2 Center=3
+@enum VertexType Inner=1 Outer=2
+@enum InnerBoundaryPos = nnw = 1 nne = 2 nee = 3 see =4 sse = 5 ssw = 6 sww = 7 nww = 8 n = 9 s = 10 w = 11 e = 12
+
+type BoundaryVertex
+  vt::VertexType
+  quadrant::POS
+  boundary::InnerBoundaryPos
+  crossing_dir::Bool # positive: crossing in positive direction (left->right, bottom->top)
+  vertex::vertex_index
+end
+
+const BoundaryVertices = vertices::Array{Tuple{BoundaryVertex, BoundaryVertex}, 1}
 
 type MeshElement
   triangle_indices::Array{triangle_index, 1}
-
   boundary_type::Boundary
-
-  center::Nullable{vertex_index}
-  in_boundary::Nullable{vertex_index}
-  out_boundary::Nullable{vertex_index}
+  boundaries::BoundaryVertices
 end
 
 type Triangle
@@ -316,227 +324,219 @@ function triangulate_boundary_leave_with_vertex(mesh::QuadTreeMesh, elIndex::ElI
   qt.values[elIndex] = Nullable{QuadTreeMeshes.MeshElement}(new_mesh_element)
 end
 
-type BoundaryVertices
-  # Bool:
-  # for west and east boundaries: true = from south to north is outgoing
-  # for north and south boundaries: true = from west to east is outgoing
-  # indices for outer boundaries
-  nnw_index::Nullable{Tuple{vertex_index, Bool}}
-  nne_index::Nullable{Tuple{vertex_index, Bool}}
-  nee_index::Nullable{Tuple{vertex_index, Bool}}
-  see_index::Nullable{Tuple{vertex_index, Bool}}
-  sse_index::Nullable{Tuple{vertex_index, Bool}}
-  ssw_index::Nullable{Tuple{vertex_index, Bool}}
-  sww_index::Nullable{Tuple{vertex_index, Bool}}
-  nww_index::Nullable{Tuple{vertex_index, Bool}}
+type LeaveBoundarySegments
+  nnw_segment::GeometryTypes.Simplex{2, Point}
+  nne_segment::GeometryTypes.Simplex{2, Point}
+  nee_segment::GeometryTypes.Simplex{2, Point}
+  see_segment::GeometryTypes.Simplex{2, Point}
+  sse_segment::GeometryTypes.Simplex{2, Point}
+  ssw_segment::GeometryTypes.Simplex{2, Point}
+  sww_segment::GeometryTypes.Simplex{2, Point}
+  nww_segment::GeometryTypes.Simplex{2, Point}
+  n_segment::GeometryTypes.Simplex{2, Point}
+  s_segment::GeometryTypes.Simplex{2, Point}
+  w_segment::GeometryTypes.Simplex{2, Point}
+  e_segment::GeometryTypes.Simplex{2, Point}
 
-  # indices for inner boundary vertices
-  nc_index::Nullable{Tuple{vertex_index, Bool}}
-  wc_index::Nullable{Tuple{vertex_index, Bool}}
-  ec_index::Nullable{Tuple{vertex_index, Bool}}
-  sc_index::Nullable{Tuple{vertex_index, Bool}}
+  function LeaveBoundarySegments(qt::QuadTree, elIndex::ElIndex)
+    qt_element = qt.elements[elIndex]
 
-  # indices for center vertices
-  nw_index::Nullable{vertex_index}
-  ne_index::Nullable{vertex_index}
-  sw_index::Nullable{vertex_index}
-  se_index::Nullable{vertex_index}
+    # new children
+    nw_element = qt.elements[get(qt_element.northWest)]
+    ne_element = qt.elements[get(qt_element.northEast)]
+    sw_element = qt.elements[get(qt_element.southWest)]
+    se_element = qt.elements[get(qt_element.southEast)]
+
+    # all relevant vertices
+    nw_vertex = qt_element.bbLeftTopIndex
+    n_vertex = nw_element.bbRightTopIndex
+    ne_vertex = ne_element.bbRightTopIndex
+    e_vertex = ne_element.bbRightBottomIndex
+    se_vertex = se_element.bbRightBottomIndex
+    s_vertex = se_element.bbLeftBottomIndex
+    sw_vertex = sw_element.bbLeftBottomIndex
+    w_vertex = sw_element.bbLeftTopIndex
+    c_vertex = nw_element.bbRightBottomIndex
+
+    # create segments - make sure they always point in positive x/y dir
+    nnw_segment = GeometryTypes.LineSegment(qt.vertices[nw_vertex], qt.vertices[n_vertex])
+    nne_segment = GeometryTypes.LineSegment(qt.vertices[n_vertex], qt.vertices[ne_vertex])
+    nee_segment = GeometryTypes.LineSegment(qt.vertices[e_vertex], qt.vertices[n_vertex])
+    see_segment = GeometryTypes.LineSegment(qt.vertices[se_vertex], qt.vertices[e_vertex])
+    sse_segment = GeometryTypes.LineSegment(qt.vertices[s_vertex], qt.vertices[se_vertex])
+    ssw_segment = GeometryTypes.LineSegment(qt.vertices[sw_vertex], qt.vertices[s_vertex])
+    sww_segment = GeometryTypes.LineSegment(qt.vertices[sw_vertex], qt.vertices[w_vertex])
+    nww_segment = GeometryTypes.LineSegment(qt.vertices[w_vertex], qt.vertices[nw_vertex])
+    n_segment = GeometryTypes.LineSegment(qt.vertices[c_vertex], qt.vertices[n_vertex])
+    s_segment = GeometryTypes.LineSegment(qt.vertices[s_vertex], qt.vertices[c_vertex])
+    w_segment = GeometryTypes.LineSegment(qt.vertices[w_vertex], qt.vertices[c_vertex])
+    e_segment = GeometryTypes.LineSegment(qt.vertices[c_vertex], qt.vertices[e_vertex])
+
+    new(nnw_segment, nne_segment, nee_segment, see_segment, sse_segment, ssw_segment, sww_segment, nww_segment, n_segment, s_segment, w_segment, e_segment)
+  end
 end
 
-BoundaryVertices() = BoundaryVertices(
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{Tuple{vertex_index, Bool}}(),
-  Nullable{vertex_index}(),
-  Nullable{vertex_index}(),
-  Nullable{vertex_index}(),
-  Nullable{vertex_index}()
-  )
-
-function find_intersection(qt::QuadTree, vertex_1::vertex_index, vertex_2::vertex_index, test_vertex_1::vertex_index, test_vertex_2::vertex_index)
-  # get line segment from vertices
-  element_segment = GeometryTypes.LineSegment(qt.vertices[vertex_1], qt.vertices[vertex_2])
-
-  test_segment = GeometryTypes.LineSegment(qt.vertices[test_vertex_1], qt.vertices[test_vertex_2])
-  does_intersect, intersection = GeometryTypes.intersects(element_segment, test_segment)
-  if (!does_intersect)
-    return Nullable{Tuple{vertex_index, Bool}}()
+function intersect(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegment)
+  # parametric solution - https://gamedev.stackexchange.com/questions/44720/line-intersection-from-parametric-equation
+  # returns parameter of first line segment
+  s1, e1 = ls1
+  s2, e2 = ls2
+  s1x, s1y = s1
+  s2x, s2y = s2
+  e1x, e1y = e1
+  e2x, e2y = e2
+  # ls1 = a + t b (0 <= t <= 1)
+  ax=s1x
+  ay=s1y
+  b = e1 - s1
+  bx, by = b
+  cx=s2x
+  cy=s2y
+  d = e2 - s2
+  dx, dy = d
+  if ((dx*by-dy*bx) == 0) || ((bx*dy-by*dx) == 0)
+    return false, 0, Point(0.,0.), false
   end
 
-  # check if intersection point is one of the vertices
-  d1 = intersection - qt.vertices[vertex_1]
-  d2 = intersection - qt.vertices[vertex_2]
-  #println("$(intersection), $(qt.vertices[vertex_1]), $(qt.vertices[vertex_2])")
-  if dot(d1,d1) < 1e-10
-    intersection_vertex = vertex_1
-  elseif dot(d2,d2) < 1e-10
-    intersection_vertex = vertex_2
+  u=(bx*(cy-ay) + by*(ax-cx))/(dx*by-dy*bx)
+  t=(dx*(ay-cy) + dy*(cx-ax))/(bx*dy-by*dx)
+
+  if u >= 0 && u <= 1 && t >= 0 && t <= 1
+    # get intersection point and intersection dir
+    p = Point(ax + t * bx, ay + t * by)
+    s = (dx != 0 && bx > 0) || (dy != 0 && by > 0)
+    #TODO: I don't think we need the direction
+    return true, t, p, s
   else
-    push!(qt.vertices, intersection)
-    intersection_vertex = length(qt.vertices)
+    return false, 0, Point(0.,0.), true
   end
-
-  # we need to determine intersection direction
-  # note that test segments are axis-aligned and only have positive components
-  dir_vertex_segment = (element_segment[2] - element_segment[1])
-  dir_test_segment = (test_segment[2] - test_segment[1])
-  #      TODO dot(dir_vertex_segment, dir_test_segment) > 0
-  if dir_vertex_segment[1] * dir_test_segment[2] > 0
-    return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, true))
-  elseif dir_vertex_segment[1] * dir_test_segment[2] < 0
-    return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, false))
-  end
-  if dir_vertex_segment[2] * dir_test_segment[1] > 0
-    return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, true))
-  elseif dir_vertex_segment[2] * dir_test_segment[1] < 0
-    return Nullable{Tuple{vertex_index, Bool}}((intersection_vertex, false))
-  end
-
-  # we should never get here
-  @assert(false)
-  return Nullable{Tuple{vertex_index, Bool}}()
 end
 
-function get_boundary_structure(qt::QuadTree, elIndex::ElIndex, toVertex::Bool)
-  qt_element = qt.elements[elIndex]
-  mesh_element = get(qt.values[elIndex])
+function fill_if_intersects(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegment, isp::Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}}, ibp::InnerBoundaryPos)
+  i, t, p, s = intersect(ls1, ls2)
+  if i
+    push!(isp, (t, p, s, ibp))
+  end
+end
 
-  bv = BoundaryVertices()
+function intersect_with_leave(lbs::LeaveBoundarySegments, ls::GeometryTypes.Simplex{2, Point})
+  # get all intersections with all relevant boundary segments
+  isp = Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}}()
+  fill_if_intersects(ls, lbs.nnw_segment, isp, nnw)
+  fill_if_intersects(ls, lbs.nne_segment, isp, nne)
+  fill_if_intersects(ls, lbs.nee_segment, isp, nee)
+  fill_if_intersects(ls, lbs.see_segment, isp, see)
+  fill_if_intersects(ls, lbs.sse_segment, isp, sse)
+  fill_if_intersects(ls, lbs.ssw_segment, isp, ssw)
+  fill_if_intersects(ls, lbs.sww_segment, isp, sww)
+  fill_if_intersects(ls, lbs.nww_segment, isp, nww)
+  fill_if_intersects(ls, lbs.n_segment, isp, n)
+  fill_if_intersects(ls, lbs.s_segment, isp, s)
+  fill_if_intersects(ls, lbs.w_segment, isp, w)
+  fill_if_intersects(ls, lbs.e_segment, isp, e)
 
-  # new children
-  nw_element = qt.elements[get(qt_element.northWest)]
-  ne_element = qt.elements[get(qt_element.northEast)]
-  sw_element = qt.elements[get(qt_element.southWest)]
-  se_element = qt.elements[get(qt_element.southEast)]
+  # sort them according to distance from start point
+  sort!(isp, (is1, is2) -> return is1[1] < is2[1])
 
-  # all relevant vertices
-  nw_vertex = qt_element.bbLeftTopIndex
-  n_vertex = nw_element.bbRightTopIndex
-  ne_vertex = ne_element.bbRightTopIndex
-  e_vertex = ne_element.bbRightBottomIndex
-  se_vertex = se_element.bbRightBottomIndex
-  s_vertex = se_element.bbLeftBottomIndex
-  sw_vertex = sw_element.bbLeftBottomIndex
-  w_vertex = sw_element.bbLeftTopIndex
-  c_vertex = nw_element.bbRightBottomIndex
+  return isp
+end
 
-  # determine boundary line segment
-  if !isnull(mesh_element.center)
-    center_vertex = get(mesh_element.center)
-    center_position = qt.vertices[mesh_element.center]
-    if (center_position[1] <  (qt.vertices[n_vertex])[1])
-      if (center_position[2] <  (qt.vertices[c_vertex])[2])
-        bv.sw_index = Nullable{vertex_index}(center_vertex)
-      else
-        bv.nw_index = Nullable{vertex_index}(center_vertex)
-      end
-    else
-      if (center_position[2] <  (qt.vertices[c_vertex])[2])
-        bv.se_index = Nullable{vertex_index}(center_vertex)
-      else
-        bv.ne_index = Nullable{vertex_index}(center_vertex)
-      end
-      #TODO: what about equality..
+function get_quadrant_from_boundary_position(qt::QuadTree, elIndex::ElIndex, intersectionPoint::BoundaryVertex)
+  if intersectionPoint.vt == Outer
+    ips = intersectionPoint.boundary
+    if ips == nnw || ips == nww
+      return (northWest, northWest)
+    elseif ips == nne || ips = nee
+      return (northEast, northEast)
+    elseif ips == sse || ips = see
+      return (southEast, southEast)
+    elseif ips == ssw || ips = sww
+      return (southWest, southWest)
+    elseif ips == n
+      return (northWest, northEast)
+    elseif ips == s
+      return (southWest, southEast)
+    elseif ips == w
+      return (northWest, southWest)
+    elseif ips == e
+      return (northEast, southEast)
     end
+  elseif intersectionPoint.vt == Inner
+    vpp = qt.vertices[intersectionPoint.vertex]
+    pos = get_child_position_from_coordinate(qt, elIndex, vpp)
+    return (pos, pos)
+  end
+end
 
-    if toVertex
-      in_boundary = mesh_element.in_boundary
-      out_boundary = mesh_element.center
-    else
-      in_boundary = mesh_element.center
-      out_boundary = mesh_element.out_boundary
+# we assume that the members of isp have corrrect boundary, vertex_type, crossing_dir
+function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndx, isp::Array{BoundaryVertex})
+    #      * for first intersection: assert that second intersection is in same quadrant and fill in structure in child
+    #      * for second intersection: assert that third intersection is in same quadrant and fill in structure in child
+    #      * etc.. until last pair was found
+    @assert(length(isp) >= 2)
+    curSecondIdx = 2
+    firstIsp = isp[1]
+    while length(isp) <= curSecondIdx
+      secondIsp = isp[curSecondIdx]
+
+      firstPos = get_quadrant_from_boundary_intersection_point(firstIsp)
+      secondPos = get_quadrant_from_boundary_intersection_point(secondIsp)
+      if firstPos[1] == secondPos[1]
+        pos = firstPos[1]
+      elseif firstPos[2] == secondPos[2]
+        pos = firstPos[2]
+      else
+        @assert(false)
+      end
+      leaveIndex = get_leave_from_pos(qt, parent_element, pos)
+      leave = qt.values[leaveIndex]
+      bv1 = BoundaryVertex(firstIsp.vt, pos, firstIsp.boundary, firstIsp.crossing_dir, firstIsp.vertex)
+      bv2 = BoundaryVertex(secondIsp.vt, pos, secondIsp.boundary, secondIsp.crossing_dir, firstIsp.vertex)
+      push!(leave.boundaries, (bv1, bv2))
+      if (firstIsp.vt == Inner || secondIsp.vt == Inner)
+        leave.boundary_type = Center
+      else
+        leave.boundary_type = Sides
+      end
+
+      firstIsp = secondIsp
+      curSecondIdx += 1
     end
+end
+
+function propagate_intersections(qt::QuadTree, parent_element::ElIndx, bndy::Tuple{BoundaryVertex, BoundaryVertex})
+  lbs = LeaveBoundarySegments(qt, parent_element)
+  b1, b2 = bndy
+  ls1p1 = qt.vertices[b1.vertex]
+  ls1p2 = qt.vertices[b2.vertex]
+  ls1 = GeometryTypes.Simplex{2, Point}(ls1p1, ls1p2)
+  isps = intersect_with_leave(lbs, ls1)
+
+  # transform intersection points into BoundaryVertex
+  allBoundaries = Array{BoundaryVertex}()
+  if b1.vt == Inner
+    push!(allBoundaries, b1)
   else
-    in_boundary = mesh_element.in_boundary
-    out_boundary = mesh_element.out_boundary
+    # ignore first intersection point
+    startIndex = 2
+  end
+  for isp in isps[startIndex:length(isps)-1]
+    # create vertex and make it into an boundary vertex
+    push!(qt.vertices, isp[2]
+    nbv = BoundaryVertex(Outer, northWest, isp[4], isp[3], length(qt.vertices))
+    push!(allBoundaries(nbv))
+  end
+  # if second boundary is an inner vertex, push last vertex and inner
+  # otherwise just push second vertex
+  if b2.vt == Inner
+    # push last vertex and end with inner
+    push!(allBoundaries, b2)
+    push!(allBoundaries(nbv))
+  else
+    push!(allBoundaries, b2)
   end
 
-  # compute intersection position for all bounding box segments of inner children
-  bv.nnw_index = find_intersection(qt, nw_vertex, n_vertex, get(in_boundary), get(out_boundary))
-  bv.nne_index = find_intersection(qt, n_vertex, ne_vertex, get(in_boundary), get(out_boundary))
-  bv.nee_index = find_intersection(qt, e_vertex, ne_vertex, get(in_boundary), get(out_boundary))
-  bv.see_index = find_intersection(qt, se_vertex, e_vertex, get(in_boundary), get(out_boundary))
-  bv.sse_index = find_intersection(qt, s_vertex, se_vertex, get(in_boundary), get(out_boundary))
-  bv.ssw_index = find_intersection(qt, sw_vertex, s_vertex, get(in_boundary), get(out_boundary))
-  bv.sww_index = find_intersection(qt, sw_vertex, w_vertex, get(in_boundary), get(out_boundary))
-  bv.nww_index = find_intersection(qt, w_vertex, nw_vertex, get(in_boundary), get(out_boundary))
-
-  bv.nc_index = find_intersection(qt, c_vertex, n_vertex, get(in_boundary), get(out_boundary))
-  bv.wc_index = find_intersection(qt, w_vertex, c_vertex, get(in_boundary), get(out_boundary))
-  bv.ec_index = find_intersection(qt, c_vertex, e_vertex, get(in_boundary), get(out_boundary))
-  bv.sc_index = find_intersection(qt, s_vertex, c_vertex, get(in_boundary), get(out_boundary))
-
-  return bv
-end
-
-function update_boundary_from_index(test_index::Nullable{Tuple{vertex_index, Bool}}, relevant_in_boundary::Nullable{vertex_index}, relevant_out_boundary::Nullable{vertex_index}, invert_direction::Bool)
-  if !isnull(test_index)
-    bi, dir = get(test_index)
-    if (invert_direction)
-      dir = !dir
-    end
-    if dir
-      @assert(isnull(relevant_in_boundary) || get(relevant_in_boundary) == bi)
-      return Nullable{vertex_index}(bi), relevant_out_boundary
-    else
-      @assert(isnull(relevant_out_boundary) || get(relevant_out_boundary) == bi)
-      return relevant_in_boundary, Nullable{vertex_index}(bi)
-    end
-  end
-
-  return relevant_in_boundary, relevant_out_boundary
-end
-
-function update_child(qt::QuadTree, elIndex::ElIndex, boundaries::BoundaryVertices)
-  leave_dir = get_leave_dir(qt, elIndex)
-
-  relevant_in_boundary = Nullable{vertex_index}()
-  relevant_out_boundary = Nullable{vertex_index}()
-  relevant_vertex = Nullable{vertex_index}()
-
-  #println("$boundaries")
-  if leave_dir == northWest
-    #println("Updating north west")
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nnw_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nww_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.wc_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nc_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_vertex = boundaries.nw_index
-  elseif leave_dir == northEast
-    #println("Updating north east")
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nne_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nee_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ec_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.nc_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_vertex = boundaries.ne_index
-  elseif leave_dir == southWest
-    #println("Updating south west")
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ssw_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sww_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.wc_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sc_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_vertex = boundaries.sw_index
-  elseif leave_dir == southEast
-    #println("Updating south east")
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sse_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.see_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.ec_index, relevant_in_boundary, relevant_out_boundary, true)
-    relevant_in_boundary, relevant_out_boundary = update_boundary_from_index(boundaries.sc_index, relevant_in_boundary, relevant_out_boundary, false)
-    relevant_vertex = boundaries.se_index
-  end
-
-  # create new element containing only the boundaries
-  new_mesh_element = MeshElement(Array{triangle_index, 1}(), None, relevant_vertex, relevant_in_boundary, relevant_out_boundary)
-  qt.values[elIndex] = Nullable(new_mesh_element)
+  forward_boundaries_to_leaves(qt, parent_element, allBoundaries)
 end
 
 """
@@ -556,22 +556,7 @@ function OnChildrenCreated(qt::QuadTree, elIndex::ElIndex)
   mesh_element = get(qt.values[elIndex])
   qt_element = qt.elements[elIndex]
 
-  if isnull(mesh_element.center)
-    bs = get_boundary_structure(qt, elIndex, false)
-    update_child(qt, get(qt_element.northWest), bs)
-    update_child(qt, get(qt_element.northEast), bs)
-    update_child(qt, get(qt_element.southWest), bs)
-    update_child(qt, get(qt_element.southEast), bs)
-  else
-    bs = get_boundary_structure(qt, elIndex, true)
-    update_child(qt, get(qt_element.northWest), bs)
-    update_child(qt, get(qt_element.northEast), bs)
-    update_child(qt, get(qt_element.southWest), bs)
-    update_child(qt, get(qt_element.southEast), bs)
-    bs = get_boundary_structure(qt, elIndex, false)
-    update_child(qt, get(qt_element.northWest), bs)
-    update_child(qt, get(qt_element.northEast), bs)
-    update_child(qt, get(qt_element.southWest), bs)
-    update_child(qt, get(qt_element.southEast), bs)
+  for bnd in qt_element.boundaries
+    propagate_intersections(qt, elIndex, bnd)
   end
 end
