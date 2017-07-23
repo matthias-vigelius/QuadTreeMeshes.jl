@@ -17,7 +17,6 @@
 
       function get_boundary_coordinates_from_index(bndy_index::Int64)
         # get quad tree element
-
         if bndy_index <= 4
           b1, b2 = qtEl.bbLeftBottomIndex, qtEl.bbRightBottomIndex
         elseif bndy_index <= 8
@@ -42,136 +41,42 @@
       push!(qt.vertices, QuadTreeMeshes.Point(get_boundary_coordinates_from_index(b2index)))
       vb2Index = length(qt.vertices)
 
-      # add center vertex
-      x = ((vpos - 1) % 2)
-      y = (vpos - 1)/2
-      vPoint = QuadTreeMeshes.Point(x * dx, y * dy) * 0.5 + QuadTreeMeshes.Point(x0 + 0.25 * dx, y0 + 0.25 * dy)
+      # add center vertex (center of child bounding box)
+      childEl = get_children(qt, 1)[vpos]
+      childBB = get_element_bounding_box(qt, childEl)
+      vx = childBB.x + 0.5 * childBB.w
+      vy = childBB.y + 0.5 * childBB.h
+      vPoint = QuadTreeMeshes.Point(x, y)
+
       push!(qt.vertices, vPoint)
       vindex = length(qt.vertices)
 
       QuadTreeMeshes.triangulate_boundary_leave_with_vertex(mesh, 1, vb1Index, vb2Index, vindex)
       mesh_element = get(qt.values[1])
-      mesh_element.in_boundary = Nullable{QuadTreeMeshes.vertex_index}(vb1Index)
-      mesh_element.out_boundary = Nullable{QuadTreeMeshes.vertex_index}(vb2Index)
-      #println("$(qt.vertices[vb1Index]), $(qt.vertices[vb2Index])")
+      #TODO: I don't think we need crossing_dir or boundary_pos
+      bv1 = QuadTreeMeshes.BoundaryVertex(Outer, northWest, northWest, false, vb1Index)
+      bv2 = QuadTreeMeshes.BoundaryVertex(Outer, northWest, northWest, false, vb2Index)
+      vv  = QuadTreeMeshes.BoundaryVertex(Innter, vpos, northWest, false, vindex)
+      push!(mesh_element.boundaries, (bv1, vv))
+      push!(mesh_element.boundaries, (vv, bv1))
 
       # subdivide new element
       QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
 
-      function check_child_element(elIndex::QuadTreeMeshes.ElIndex)
-        qt_element = qt.elements[elIndex]
-        mesh_element = get(qt.values[elIndex])
-
-        # compute intersection points of boundary with bounding box
-        b1, b2 = qt.vertices[vb1Index], qt.vertices[vb2Index]
-        v = qt.vertices[vindex]
-        b1vs = GeometryTypes.LineSegment(b1, v)
-        vb2s = GeometryTypes.LineSegment(v, b2)
-
-        tinterPoints = Array{QuadTreeMeshes.Point, 1}()
-
-        sb1, sb2 = qt.vertices[qt_element.bbLeftBottomIndex], qt.vertices[qt_element.bbRightBottomIndex]
-        sb1_intersects, sb1i = GeometryTypes.intersects(b1vs, GeometryTypes.LineSegment(sb1, sb2))
-        sb2_intersects, sb2i = GeometryTypes.intersects(vb2s, GeometryTypes.LineSegment(sb1, sb2))
-        #println("$(sb_intersects), $(sbi)")
-        eb1, eb2 = qt.vertices[qt_element.bbRightBottomIndex], qt.vertices[qt_element.bbRightTopIndex]
-        eb1_intersects, eb1i = GeometryTypes.intersects(b1vs, GeometryTypes.LineSegment(eb1, eb2))
-        eb2_intersects, eb2i = GeometryTypes.intersects(vb2s, GeometryTypes.LineSegment(eb1, eb2))
-        #println("$(eb_intersects), $(ebi)")
-        nb1, nb2 = qt.vertices[qt_element.bbRightTopIndex], qt.vertices[qt_element.bbLeftTopIndex]
-        nb1_intersects, nb1i = GeometryTypes.intersects(b1vs, GeometryTypes.LineSegment(nb1, nb2))
-        nb2_intersects, nb2i = GeometryTypes.intersects(vb2s, GeometryTypes.LineSegment(nb1, nb2))
-        #println("$(nb_intersects), $(nbi)")
-        wb1, wb2 = qt.vertices[qt_element.bbLeftBottomIndex], qt.vertices[qt_element.bbLeftTopIndex]
-        wb1_intersects, wb1i = GeometryTypes.intersects(b1vs, GeometryTypes.LineSegment(wb1, wb2))
-        wb2_intersects, wb2i = GeometryTypes.intersects(vb2s, GeometryTypes.LineSegment(wb1, wb2))
-        #println("$(wb_intersects), $(wbi)")
-        if sb1_intersects
-          push!(tinterPoints, sb1i)
-        end
-        if sb2_intersects
-          push!(tinterPoints, sb2i)
-        end
-        if eb1_intersects
-          push!(tinterPoints, eb1i)
-        end
-        if eb2_intersects
-          push!(tinterPoints, eb2i)
-        end
-        if nb1_intersects
-          push!(tinterPoints, nb1i)
-        end
-        if nb2_intersects
-          push!(tinterPoints, nb12)
-        end
-        if wb1_intersects
-          push!(tinterPoints, wb1i)
-        end
-        if wb2_intersects
-          push!(tinterPoints, wb2i)
-        end
-
-        # remove duplicates
-        interPoints = Array{QuadTreeMeshes.Point, 1}()
-        for tp in tinterPoints
-          found = false
-          for p in interPoints
-            if !found && dot((p-tp), (p-tp)) < 1e-10
-              found = true
-            end
-          end
-          if !found
-            push!(interPoints, tp)
-          end
-        end
-
-        npoints = length(interPoints)
-        @assert(npoints <= 4)
-        vpx, vpy = vPoint
-        if (vpx >= sb1[1] && vpx <= sb2[1])
-          && (vpy >= eb1[2] && vpy <= eb2[2])
-          # vertex is in element
-          @test(!isnull(mesh_element.center) && get(mesh_element.center) == vindex)
-        else
-          @test(isnull(mesh_element.center))
-        end
-        if npoints == 1
-          # it is just touching the corner
-          ip1 = interPoints[1]
-          @assert(!isnull(mesh_element.in_boundary))
-          @assert(!isnull(mesh_element.out_boundary))
-          @test(get(mesh_element.in_boundary) == get(mesh_element.out_boundary))
-          ib, ob = qt.vertices[get(mesh_element.in_boundary)], qt.vertices[get(mesh_element.out_boundary)]
-          @test(vecnorm(ip1 - ib) < 1e-10)
-          @test(vecnorm(ip1 - ob) < 1e-10)
-          @test(isnull(mesh_element.center))
-        elseif npoints == 2
-          # check if interpPoints[1] is on direct line from b1 to vPoint
-          db1i = interPoints[1]-b1
-          div = vPoint-interPoints[1]
-          db1v = vPoint-b1
-          if (dot(db1i, db1i) + dot(div, div) - dot(db1v, db1v)) <= 0
-            ip1 = interPoints[1]
-            ip2 = interPoints[2]
-          else
-            ip1 = interPoints[2]
-            ip2 = interPoints[1]
-          end
-          @assert(!isnull(mesh_element.in_boundary))
-          @assert(!isnull(mesh_element.out_boundary))
-          ib, ob = qt.vertices[get(mesh_element.in_boundary)], qt.vertices[get(mesh_element.out_boundary)]
-          @test(vecnorm(ip1 - ib) < 1e-10)
-          @test(vecnorm(ip2 - ob) < 1e-10)
-          @test(isnull(mesh_element.center))
-        elseif npoints == 3
-          # todo hmm..
-        elseif npoints == 4
-          # in the four intersection case we make sure it is flagged dirty
-          # todo: need test where we subdivide dirty elements
-        end
-      end
+      # compute intersection points of boundary with bounding box
+      b1, b2 = qt.vertices[vb1Index], qt.vertices[vb2Index]
+      v = qt.vertices[vindex]
+      b1vs = GeometryTypes.LineSegment(b1, v)
+      vb2s = GeometryTypes.LineSegment(v, b2)
 
       # check all child elements
+      function check_child_element(elIndex::QuadTreeMeshes.ElIndex)
+        check_leave_intersection(qt, elIndex, b1vs)
+        check_leave_intersection(qt, elIndex, v2bs)
+        # check that there a no boundary intersections left
+        @test(length(qt.values[elIndex].boundaries) == 0)
+      end
+
       check_child_element(get(qtEl.northWest))
       check_child_element(get(qtEl.northEast))
       check_child_element(get(qtEl.southWest))

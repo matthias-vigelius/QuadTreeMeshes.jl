@@ -16,6 +16,7 @@ type MeshElement
   triangle_indices::Array{triangle_index, 1}
   boundary_type::Boundary
   boundaries::BoundaryVertices
+  center::Nullable{vertex_index}
 end
 
 type Triangle
@@ -493,8 +494,12 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndx, isp:
       bv1 = BoundaryVertex(firstIsp.vt, pos, firstIsp.boundary, firstIsp.crossing_dir, firstIsp.vertex)
       bv2 = BoundaryVertex(secondIsp.vt, pos, secondIsp.boundary, secondIsp.crossing_dir, firstIsp.vertex)
       push!(leave.boundaries, (bv1, bv2))
-      if (firstIsp.vt == Inner || secondIsp.vt == Inner)
+      if (firstIsp.vt == Inner)
+        leave.center = Nullable{vertex_index}(firstIsp.vertex)
         leave.boundary_type = Center
+      elseif  secondIsp.vt == Inner
+        leave.boundary_type = Center
+        leave.center = Nullable{vertex_index}(secondIsp.vertex)
       else
         leave.boundary_type = Sides
       end
@@ -505,7 +510,7 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndx, isp:
 end
 
 function propagate_intersections(qt::QuadTree, parent_element::ElIndx, bndy::Tuple{BoundaryVertex, BoundaryVertex})
-  lbs = LeaveBoundarySegments(qt, parent_element)
+  lbs = LeaveBoundarySegments(qt, parent_element) # TODO: can probably pull that out of the function
   b1, b2 = bndy
   ls1p1 = qt.vertices[b1.vertex]
   ls1p2 = qt.vertices[b2.vertex]
@@ -519,6 +524,7 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndx, bndy::Tup
   else
     # ignore first intersection point
     startIndex = 2
+    push!(allBoundaries, b1)
   end
   for isp in isps[startIndex:length(isps)-1]
     # create vertex and make it into an boundary vertex

@@ -1,3 +1,120 @@
+function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTreeMeshes.ElIndex, ls::GeometryTypes.Simplex{2, QuadTreeMeshes.Point}, center_vertex::Nullable{vertex_index})
+  qt_element = qt.elements[elIndex]
+  mesh_element = get(qt.values[elIndex])
+
+  tinterPoints = Array{QuadTreeMeshes.Point, 1}()
+
+  sb1, sb2 = qt.vertices[qt_element.bbLeftBottomIndex], qt.vertices[qt_element.bbRightBottomIndex]
+  sb1_intersects, sb1i = GeometryTypes.intersects(ls, GeometryTypes.LineSegment(sb1, sb2))
+  eb1, eb2 = qt.vertices[qt_element.bbRightBottomIndex], qt.vertices[qt_element.bbRightTopIndex]
+  eb1_intersects, eb1i = GeometryTypes.intersects(ls, GeometryTypes.LineSegment(eb1, eb2))
+  nb1, nb2 = qt.vertices[qt_element.bbRightTopIndex], qt.vertices[qt_element.bbLeftTopIndex]
+  nb1_intersects, nb1i = GeometryTypes.intersects(ls, GeometryTypes.LineSegment(nb1, nb2))
+  wb1, wb2 = qt.vertices[qt_element.bbLeftBottomIndex], qt.vertices[qt_element.bbLeftTopIndex]
+  wb1_intersects, wb1i = GeometryTypes.intersects(ls, GeometryTypes.LineSegment(wb1, wb2))
+  if sb1_intersects
+    push!(tinterPoints, sb1i)
+  end
+  if sb2_intersects
+    push!(tinterPoints, sb2i)
+  end
+  if eb1_intersects
+    push!(tinterPoints, eb1i)
+  end
+  if eb2_intersects
+    push!(tinterPoints, eb2i)
+  end
+  if nb1_intersects
+    push!(tinterPoints, nb1i)
+  end
+  if nb2_intersects
+    push!(tinterPoints, nb12)
+  end
+  if wb1_intersects
+    push!(tinterPoints, wb1i)
+  end
+  if wb2_intersects
+    push!(tinterPoints, wb2i)
+  end
+
+  # remove duplicates
+  interPoints = Array{QuadTreeMeshes.Point, 1}()
+  for tp in tinterPoints
+    found = false
+    for p in interPoints
+      if !found && dot((p-tp), (p-tp)) < 1e-10
+        found = true
+      end
+    end
+    if !found
+      push!(interPoints, tp)
+    end
+  end
+
+  npoints = length(interPoints)
+
+  center_is_in_element = false
+  if !isnull(center_vertex)
+    vPoint = qt.vertices[get(center_vertex)]
+    vpx, vpy = vPoint
+    if (vpx >= sb1[1] && vpx <= sb2[1])
+      && (vpy >= eb1[2] && vpy <= eb2[2])
+      # vertex is in element
+      center_is_in_element = true
+      @test(!isnull(mesh_element.center) && get(mesh_element.center) == vindex)
+    else
+      @test(isnull(mesh_element.center))
+    end
+  end
+  if center_is_in_element
+    # we must have exactly two boundaries - one that starts at the center
+    # and one that ends there
+    @assert(length(mesh_element.boundaries) == 2)
+    s, e = ls
+    ls_starts_at_vertex = dot(s-vPoint, s-vPoint) <= 1e-10
+    ls_ends_at_vertex = dot(e-vPoint, e-vPoint) <= 1e-10
+    @assert((ls_starts_at_vertex && !ls_ends_at_vertex) || (!ls_starts_at_vertex && ls_ends_at_vertex))
+    found = Nullable{QuadTreeMeshes.BoundaryVertex}
+    for b in mesh_element.boundaries
+      if ls_starts_at_vertex && b[1].vt == Inner && b[1].vertex = get(center_vertex)
+        found = Nullable{QuadTreeMeshes.BoundaryVertex}(b[2])
+      elseif ls_ends_at_vertex && b[2].vt == Inner && b[2].vertex = get(center_vertex)
+        found = Nullable{QuadTreeMeshes.BoundaryVertex}(b[1])
+      end
+    end
+    @assert(!isnull(found))
+    boundary_vertex_point = qt.vertices[get(found).vertex]
+    @assert(length(interPoints) == 1)
+    dist = boundary_vertex_point - interPoints[1]
+    @test(dot(dist, dist) <= 1e-10)
+    mesh_element.boundaries = deletat!(mesh_element.boundaries, get(found))
+  else
+    @assert(length(interPoints) <= 2)
+    if length(interPoints) > 0
+      if (length(interPoints) == 1)
+        input_boundary = (interPoints[1], interPoints[1])
+      elseif length(interPoints) == 2
+        input_boundary = (interPoints[1], interPoints[2])
+      else
+        @assert(false)
+      end
+      found = Nullable{Int}()
+      for (ind, b) in enumerate(mesh_element.boundaries)
+        b1, b2 = b
+        b1p = qt.vertices[b1.vertex]
+        b2p = qt.vertices[b2.vertex]
+        db1 = b1p - input_boundary[1]
+        db2 = b2p - input_boundary[2]
+        if dot(db1, db1) <= 1e-10 && dot(db2, db2) <= 1e-10
+          found = Nullable{Int}(ind)
+        end
+        @assert(!isnull(found))
+        mesh_element.boundaries = deletat!(mesh_element.boundaries, get(found))
+      end
+    end
+  end
+end
+
 function subdividefunc(x)
   #println("$x")
 end
