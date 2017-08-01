@@ -1,4 +1,4 @@
-function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTreeMeshes.ElIndex, ls::GeometryTypes.Simplex{2, QuadTreeMeshes.Point}, center_vertex::Nullable{vertex_index})
+function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTreeMeshes.ElIndex, ls::GeometryTypes.Simplex{2, QuadTreeMeshes.Point}, center_vertex::Nullable{QuadTreeMeshes.vertex_index})
   qt_element = qt.elements[elIndex]
   mesh_element = get(qt.values[elIndex])
 
@@ -57,8 +57,7 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
   if !isnull(center_vertex)
     vPoint = qt.vertices[get(center_vertex)]
     vpx, vpy = vPoint
-    if (vpx >= sb1[1] && vpx <= sb2[1])
-      && (vpy >= eb1[2] && vpy <= eb2[2])
+    if ((vpx >= sb1[1] && vpx <= sb2[1]) && (vpy >= eb1[2] && vpy <= eb2[2]))
       # vertex is in element
       center_is_in_element = true
       @test(!isnull(mesh_element.center) && get(mesh_element.center) == vindex)
@@ -76,9 +75,9 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
     @assert((ls_starts_at_vertex && !ls_ends_at_vertex) || (!ls_starts_at_vertex && ls_ends_at_vertex))
     found = Nullable{QuadTreeMeshes.BoundaryVertex}
     for b in mesh_element.boundaries
-      if ls_starts_at_vertex && b[1].vt == Inner && b[1].vertex = get(center_vertex)
+      if ls_starts_at_vertex && b[1].vt == Inner && b[1].vertex == get(center_vertex)
         found = Nullable{QuadTreeMeshes.BoundaryVertex}(b[2])
-      elseif ls_ends_at_vertex && b[2].vt == Inner && b[2].vertex = get(center_vertex)
+      elseif ls_ends_at_vertex && b[2].vt == Inner && b[2].vertex == get(center_vertex)
         found = Nullable{QuadTreeMeshes.BoundaryVertex}(b[1])
       end
     end

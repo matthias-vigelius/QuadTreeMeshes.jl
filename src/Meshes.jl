@@ -1,16 +1,16 @@
 @enum Boundary None=1 Sides=2 Center=3
 @enum VertexType Inner=1 Outer=2
-@enum InnerBoundaryPos = nnw = 1 nne = 2 nee = 3 see =4 sse = 5 ssw = 6 sww = 7 nww = 8 n = 9 s = 10 w = 11 e = 12
+@enum InnerBoundaryPos  nnw = 1 nne = 2 nee = 3 see =4 sse = 5 ssw = 6 sww = 7 nww = 8 n = 9 s = 10 w = 11 e = 12
 
 type BoundaryVertex
-  vt::VertexType
+  vt::VertexType # needed
   quadrant::POS
-  boundary::InnerBoundaryPos
+  boundary::InnerBoundaryPos # needed
   crossing_dir::Bool # positive: crossing in positive direction (left->right, bottom->top)
-  vertex::vertex_index
+  vertex::vertex_index #needed
 end
 
-const BoundaryVertices = vertices::Array{Tuple{BoundaryVertex, BoundaryVertex}, 1}
+const BoundaryVertices = Array{Tuple{BoundaryVertex, BoundaryVertex}, 1}
 
 type MeshElement
   triangle_indices::Array{triangle_index, 1}
@@ -110,16 +110,16 @@ function triangulate_leave(mesh::QuadTreeMesh, elIndex::ElIndex)
 
   # add triangulation templates to triangle list
   templates = inner_templates[shape_index + 1]
-  indices = Array{Int64, 1}()
+  triangle_indices = Array{Int64, 1}()
   for t in templates
     template = [leave_vertex_indices[t[1]], leave_vertex_indices[t[2]], leave_vertex_indices[t[3]]]
     triangle = Triangle(template)
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
+    push!(triangle_indices, length(mesh.triangles))
   end
 
   # create new mesh element and add to list
-  new_mesh_element = MeshElement(indices, None, Nullable{vertex_index}(), Nullable{vertex_index}(), Nullable{vertex_index}())
+  new_mesh_element = MeshElement(triangle_indices, None, Nullable{vertex_index}(), Nullable{vertex_index}(), Nullable{vertex_index}())
   qt.values[elIndex] = Nullable{QuadTreeMeshes.MeshElement}(new_mesh_element)
 end
 
@@ -145,6 +145,58 @@ function get_boundary_vertex_dir(vertex::Point, rt::Point, lb::Point)
 end
 
 # TODO: corner cases: - constraint along element boundary - vertex at half point - vertex in center
+
+
+function get_inner_boundary_pos_from_coordinate(vertex::Point, rt::Point, lb::Point)
+  # determine tolerance
+  dx, dy = rt - lb
+
+  isTop = false
+  isLeft = false
+  isBottom = false
+  isRight = false
+  dyt = abs(vertex[2] - rt[2])
+  dyb = abs(vertex[2] - lb[2])
+  if dyt < 0.1 * dx
+    isTop = true
+  elseif dyb < 0.1 * dx
+    isBottom = true
+  end
+  dxl = abs(vertex[1] - lb[1])
+  dxr = abs(vertex[1] - rt[1]) 
+  if dxl < 0.1 * dx
+    isLeft = true
+  elseif dxr < 0.1 * dx
+    isRight = true
+  end
+  if isTop 
+    if dxl < 0.5 * dx
+      return nnw
+    else
+      return nne
+    end
+  elseif isBottom
+    if dxl < 0.5 * dx
+      return ssw
+    else
+      return sse
+    end
+  elseif isLeft
+    if dyt < 0.5 * dy
+      return nww
+    else
+      return sww
+    end
+  elseif isRight
+    if dyt < 0.5 * dy
+      return nee
+    else
+      return see
+    end
+  else
+    @assert(false)
+  end
+end
 
 function triangulate_boundary_leave(mesh::QuadTreeMesh, elIndex::ElIndex, bnd1Index::vertex_index, bnd2Index::vertex_index)
   qt = mesh.quadtree
@@ -187,17 +239,25 @@ function triangulate_boundary_leave(mesh::QuadTreeMesh, elIndex::ElIndex, bnd1In
 
   # add triangulation templates to triangle list
   templates = inner_templates[shape_index + 1]
-  indices = Array{Int64, 1}()
+  triangle_indices = Array{Int64, 1}()
   for t in templates
     template = [leave_vertex_indices[t[1]], leave_vertex_indices[t[2]], leave_vertex_indices[t[3]]]
     triangle = Triangle(template)
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
+    push!(triangle_indices, length(mesh.triangles))
   end
 
+  # we need to classify the boundary vertices from that triangulation
+  # we do not check if the given vertex is actually *on* the boundary
+  # we just assume it is
+  pos1 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd1Index], rt, lb)
+  pos2 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd2Index], rt, lb)
+  bv1 = BoundaryVertex(Outer, northWest, pos1, true, bnd1Index)
+  bv2 = BoundaryVertex(Outer, northWest, pos2, true, bnd2Index)
+
   # create new mesh element and add to list
-  new_mesh_element = MeshElement(indices, Sides, Nullable{vertex_index}(), Nullable{vertex_index}(bnd1Index), Nullable{vertex_index}(bnd2Index))
-  qt.values[elIndex] = Nullable{QuadTreeMeshes.MeshElement}(new_mesh_element)
+  new_mesh_element = MeshElement(triangle_indices, Sides, [(bv1, bv2)], Nullable{vertex_index}())
+  qt.values[elIndex] = Nullable{MeshElement}(new_mesh_element)
 end
 
 function get_vertex_pos_on_boundary(cp::Point, bd::Point)
@@ -246,82 +306,86 @@ function triangulate_boundary_leave_with_vertex(mesh::QuadTreeMesh, elIndex::ElI
   bd1pos = get_vertex_pos_on_boundary(c, qt.vertices[bnd1Index])
   bd2pos = get_vertex_pos_on_boundary(c, qt.vertices[bnd2Index])
 
-  triangleIndices = Array{Int64, 1}()
-  @assert(bd1Pos != northWest || bd2pos != northWest)
+  triangle_indices = Array{Int64, 1}()
+  @assert(bd1pos != northWest || bd2pos != northWest)
   if bd1pos != northWest && bd2pos != northWest
-      triangle = Triangle(qtEl.bbLeftTopIndex, vIndex, qtEl.bbRightTopIndex)
+      triangle = Triangle([qtEl.bbLeftTopIndex, vIndex, qtEl.bbRightTopIndex])
       push!(mesh.triangles, triangle)
-      push!(indices, length(mesh.triangles))
+      push!(triangle_indices, length(mesh.triangles))
   else
     if bd1pos == northWest
       bdIndex = bnd1Index
     else
       bdIndex = bnd2Index
     end
-    triangle = Triangle(qtEl.bbLeftTopIndex, vIndex, bdIndex)
+    triangle = Triangle([qtEl.bbLeftTopIndex, vIndex, bdIndex])
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
-    triangle = Triangle(qtEl.bbRightTopIndex, bdIndex, vIndex)
+    push!(triangle_indices, length(mesh.triangles))
+    triangle = Triangle([qtEl.bbRightTopIndex, bdIndex, vIndex])
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
+    push!(triangle_indices, length(mesh.triangles))
   end
-  @assert(bd1Pos != northEast || bd2pos != northEast)
+  @assert(bd1pos != northEast || bd2pos != northEast)
   if bd1pos != northEast && bd2pos != northEast
-      triangle = Triangle(qtEl.bbLeftTopIndex, vIndex, qtEl.bbRightTopIndex)
+      triangle = Triangle([qtEl.bbLeftTopIndex, vIndex, qtEl.bbRightTopIndex])
       push!(mesh.triangles, triangle)
-      push!(indices, length(mesh.triangles))
+      push!(triangle_indices, length(mesh.triangles))
   else
     if bd1pos == northEast
       bdIndex = bnd1Index
     else
       bdIndex = bnd2Index
     end
-    triangle = Triangle(qtEl.bbLeftTopIndex, vIndex, bdIndex)
+    triangle = Triangle([qtEl.bbLeftTopIndex, vIndex, bdIndex])
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
-    triangle = Triangle(qtEl.bbRightTopIndex, bdIndex, vIndex)
+    push!(triangle_indices, length(mesh.triangles))
+    triangle = Triangle([qtEl.bbRightTopIndex, bdIndex, vIndex])
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
+    push!(triangle_indices, length(mesh.triangles))
   end
-  @assert(bd1Pos != southWest || bd2pos != southWest)
+  @assert(bd1pos != southWest || bd2pos != southWest)
   if bd1pos != southWest && bd2pos != southWest
-      triangle = Triangle(qtEl.bbLeftBottomIndex, vIndex, qtEl.bbRightBottomIndex)
+      triangle = Triangle([qtEl.bbLeftBottomIndex, vIndex, qtEl.bbRightBottomIndex])
       push!(mesh.triangles, triangle)
-      push!(indices, length(mesh.triangles))
+      push!(triangle_indices, length(mesh.triangles))
   else
     if bd1pos == southWest
       bdIndex = bnd1Index
     else
       bdIndex = bnd2Index
     end
-    triangle = Triangle(qtEl.bbLeftBottomIndex, vIndex, bdIndex)
+    triangle = Triangle([qtEl.bbLeftBottomIndex, vIndex, bdIndex])
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
-    triangle = Triangle(qtEl.bbRightBottomIndex, bdIndex, vIndex)
+    push!(triangle_indices, length(mesh.triangles))
+    triangle = Triangle([qtEl.bbRightBottomIndex, bdIndex, vIndex])
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
+    push!(triangle_indices, length(mesh.triangles))
   end
-  @assert(bd1Pos != southEast || bd2pos != southEast)
+  @assert(bd1pos != southEast || bd2pos != southEast)
   if bd1pos != southEast && bd2pos != southEast
-      triangle = Triangle(qtEl.bbLeftBottomIndex, vIndex, qtEl.bbRightBottomIndex)
+      triangle = Triangle([qtEl.bbLeftBottomIndex, vIndex, qtEl.bbRightBottomIndex])
       push!(mesh.triangles, triangle)
-      push!(indices, length(mesh.triangles))
+      push!(triangle_indices, length(mesh.triangles))
   else
     if bd1pos == southEast
       bdIndex = bnd1Index
     else
       bdIndex = bnd2Index
     end
-    triangle = Triangle(qtEl.bbLeftBottomIndex, vIndex, bdIndex)
+    triangle = Triangle([qtEl.bbLeftBottomIndex, vIndex, bdIndex])
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
-    triangle = Triangle(qtEl.bbRightBottomIndex, bdIndex, vIndex)
+    push!(triangle_indices, length(mesh.triangles))
+    triangle = Triangle([qtEl.bbRightBottomIndex, bdIndex, vIndex])
     push!(mesh.triangles, triangle)
-    push!(indices, length(mesh.triangles))
+    push!(triangle_indices, length(mesh.triangles))
   end
 
   # create new mesh element and add to list
-  new_mesh_element = MeshElement(indices, Center, Nullable{vertex_index}(vIndex), Nullable{vertex_index}(bnd1Index), Nullable{vertex_index}(bnd2Index))
+  pos2 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd1Index], rt, lb)
+  nbvv = BoundaryVertex(Inner, northWest, nnw, true, vIndex)
+  nbv1 = BoundaryVertex(Outer, northWest, pos2, true, bnd1Index)
+
+  new_mesh_element = MeshElement(triangle_indices, Center, [(nbvv, nbv1)], Nullable{vertex_index}(bnd2Index))
   qt.values[elIndex] = Nullable{QuadTreeMeshes.MeshElement}(new_mesh_element)
 end
 
@@ -413,7 +477,7 @@ function intersect(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegmen
   end
 end
 
-function fill_if_intersects(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegment, isp::Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}}, ibp::InnerBoundaryPos)
+function fill_if_intersects(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegment, isp::Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}, 1}, ibp::InnerBoundaryPos)
   i, t, p, s = intersect(ls1, ls2)
   if i
     push!(isp, (t, p, s, ibp))
@@ -422,7 +486,7 @@ end
 
 function intersect_with_leave(lbs::LeaveBoundarySegments, ls::GeometryTypes.Simplex{2, Point})
   # get all intersections with all relevant boundary segments
-  isp = Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}}()
+  isp = Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}, 1}()
   fill_if_intersects(ls, lbs.nnw_segment, isp, nnw)
   fill_if_intersects(ls, lbs.nne_segment, isp, nne)
   fill_if_intersects(ls, lbs.nee_segment, isp, nee)
@@ -437,7 +501,7 @@ function intersect_with_leave(lbs::LeaveBoundarySegments, ls::GeometryTypes.Simp
   fill_if_intersects(ls, lbs.e_segment, isp, e)
 
   # sort them according to distance from start point
-  sort!(isp, (is1, is2) -> return is1[1] < is2[1])
+  sort!(isp, lt = (is1, is2) -> return is1[1] < is2[1])
 
   return isp
 end
@@ -447,11 +511,11 @@ function get_quadrant_from_boundary_position(qt::QuadTree, elIndex::ElIndex, int
     ips = intersectionPoint.boundary
     if ips == nnw || ips == nww
       return (northWest, northWest)
-    elseif ips == nne || ips = nee
+    elseif ips == nne || ips == nee
       return (northEast, northEast)
-    elseif ips == sse || ips = see
+    elseif ips == sse || ips == see
       return (southEast, southEast)
-    elseif ips == ssw || ips = sww
+    elseif ips == ssw || ips == sww
       return (southWest, southWest)
     elseif ips == n
       return (northWest, northEast)
@@ -470,7 +534,7 @@ function get_quadrant_from_boundary_position(qt::QuadTree, elIndex::ElIndex, int
 end
 
 # we assume that the members of isp have corrrect boundary, vertex_type, crossing_dir
-function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndx, isp::Array{BoundaryVertex})
+function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndex, isp::Array{BoundaryVertex})
     #      * for first intersection: assert that second intersection is in same quadrant and fill in structure in child
     #      * for second intersection: assert that third intersection is in same quadrant and fill in structure in child
     #      * etc.. until last pair was found
@@ -480,8 +544,10 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndx, isp:
     while length(isp) <= curSecondIdx
       secondIsp = isp[curSecondIdx]
 
-      firstPos = get_quadrant_from_boundary_intersection_point(firstIsp)
-      secondPos = get_quadrant_from_boundary_intersection_point(secondIsp)
+      # intersection points can belong to two quadrants (if it's on an inner boundary)
+      # but at least one of the options should match
+      firstPos = get_quadrant_from_boundary_position(qt, parent_element, firstIsp)
+      secondPos = get_quadrant_from_boundary_position(qt, parent_element, secondIsp)
       if firstPos[1] == secondPos[1]
         pos = firstPos[1]
       elseif firstPos[2] == secondPos[2]
@@ -489,8 +555,10 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndx, isp:
       else
         @assert(false)
       end
+
+      # create boundary vertices from intersection points and forward them to leaves
       leaveIndex = get_leave_from_pos(qt, parent_element, pos)
-      leave = qt.values[leaveIndex]
+      leave = get(qt.values[leaveIndex])
       bv1 = BoundaryVertex(firstIsp.vt, pos, firstIsp.boundary, firstIsp.crossing_dir, firstIsp.vertex)
       bv2 = BoundaryVertex(secondIsp.vt, pos, secondIsp.boundary, secondIsp.crossing_dir, firstIsp.vertex)
       push!(leave.boundaries, (bv1, bv2))
@@ -509,7 +577,7 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndx, isp:
     end
 end
 
-function propagate_intersections(qt::QuadTree, parent_element::ElIndx, bndy::Tuple{BoundaryVertex, BoundaryVertex})
+function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tuple{BoundaryVertex, BoundaryVertex})
   lbs = LeaveBoundarySegments(qt, parent_element) # TODO: can probably pull that out of the function
   b1, b2 = bndy
   ls1p1 = qt.vertices[b1.vertex]
@@ -518,8 +586,9 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndx, bndy::Tup
   isps = intersect_with_leave(lbs, ls1)
 
   # transform intersection points into BoundaryVertex
-  allBoundaries = Array{BoundaryVertex}()
+  allBoundaries = Array{BoundaryVertex, 1}()
   if b1.vt == Inner
+    startIndex = 1
     push!(allBoundaries, b1)
   else
     # ignore first intersection point
@@ -528,16 +597,17 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndx, bndy::Tup
   end
   for isp in isps[startIndex:length(isps)-1]
     # create vertex and make it into an boundary vertex
-    push!(qt.vertices, isp[2]
-    nbv = BoundaryVertex(Outer, northWest, isp[4], isp[3], length(qt.vertices))
-    push!(allBoundaries(nbv))
+    push!(qt.vertices, isp[2])
+    newVertexIndex = length(qt.vertices)
+    nbv = BoundaryVertex(Outer, northWest, isp[4], isp[3], newVertexIndex)
+    push!(allBoundaries,nbv)
   end
   # if second boundary is an inner vertex, push last vertex and inner
   # otherwise just push second vertex
   if b2.vt == Inner
     # push last vertex and end with inner
     push!(allBoundaries, b2)
-    push!(allBoundaries(nbv))
+    push!(allBoundaries,nbv)
   else
     push!(allBoundaries, b2)
   end
@@ -562,7 +632,7 @@ function OnChildrenCreated(qt::QuadTree, elIndex::ElIndex)
   mesh_element = get(qt.values[elIndex])
   qt_element = qt.elements[elIndex]
 
-  for bnd in qt_element.boundaries
+  for bnd in mesh_element.boundaries
     propagate_intersections(qt, elIndex, bnd)
   end
 end

@@ -361,7 +361,7 @@ end
 function get_child_position_from_coordinate(qt::QuadTree, qtEl::ElIndex, coord::Point)
   bb = get_element_bounding_box(qt, qtEl)
   cx, cy = coord
-  xbl, ybl, w, h = r.x, r.y, r.x + r.w, r.y + r.h
+  xbl, ybl, w, h = bb.x, bb.y, bb.x + bb.w, bb.y + bb.h
   @assert(cx >= bb.x && cx <= bb.x + bb.w && cy >= bb.y && cy <= bb.y + bb.h)
   if cx >= bb.x + 0.5 * bb.w
     if cy >= bb.y + 0.5 * bb.h
@@ -484,7 +484,7 @@ function get_leave_dir(qt::QuadTree, eli::ElIndex)
   error("Quadtree corruption: cannot locate element $eli in parent node.")
 end
 
-function get_leave_from_pos(qt::QuadTree, eli::ElIndx, pos::POS)
+function get_leave_from_pos(qt::QuadTree, eli::ElIndex, pos::POS)
   @assert(has_child(qt, eli))
   el = qt.elements[eli]
 

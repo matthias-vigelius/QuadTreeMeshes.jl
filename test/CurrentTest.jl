@@ -1,11 +1,7 @@
-@testset "Update boundaries with vertices" begin for b1index in 1:1, b2index in 4:4 begin, vpos in 1:4 begin
-    q1 = floor((b1index - 1)/4)
-    q2 = floor((b2index - 1)/4)
-
-    if q1 != q2
-      #b1index = 1
-      #b2index = 9
-
+@testset "Update boundaries with vertices" begin
+    b1index = 1
+    b2index = 4
+    vpos = 1
       #println("------------------Testing ($(b1index), $(b2index))")
       # add boundaries to single element
       x0, y0 = 2.0, 3.0
@@ -42,23 +38,16 @@
       vb2Index = length(qt.vertices)
 
       # add center vertex (center of child bounding box)
-      childEl = get_children(qt, 1)[vpos]
-      childBB = get_element_bounding_box(qt, childEl)
-      vx = childBB.x + 0.5 * childBB.w
-      vy = childBB.y + 0.5 * childBB.h
-      vPoint = QuadTreeMeshes.Point(x, y)
+      elBB = QuadTreeMeshes.get_element_bounding_box(qt, 1)
+      vx = elBB.x + 0.25 * elBB.w + ((vpos == QuadTreeMeshes.northEast || vpos == QuadTreeMeshes.southEast) ? 1 : 0) * 0.25 * elBB.w 
+      vy = elBB.y + 0.25 * elBB.h + ((vpos == QuadTreeMeshes.southWest || vpos == QuadTreeMeshes.southEast) ? 1 : 0) * 0.25 * elBB.h 
+      vPoint = QuadTreeMeshes.Point(vx, vy)
 
       push!(qt.vertices, vPoint)
       vindex = length(qt.vertices)
 
       QuadTreeMeshes.triangulate_boundary_leave_with_vertex(mesh, 1, vb1Index, vb2Index, vindex)
       mesh_element = get(qt.values[1])
-      #TODO: I don't think we need crossing_dir or boundary_pos
-      bv1 = QuadTreeMeshes.BoundaryVertex(Outer, northWest, northWest, false, vb1Index)
-      bv2 = QuadTreeMeshes.BoundaryVertex(Outer, northWest, northWest, false, vb2Index)
-      vv  = QuadTreeMeshes.BoundaryVertex(Innter, vpos, northWest, false, vindex)
-      push!(mesh_element.boundaries, (bv1, vv))
-      push!(mesh_element.boundaries, (vv, bv1))
 
       # subdivide new element
       QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
@@ -82,7 +71,4 @@
       check_child_element(get(qtEl.southWest))
       check_child_element(get(qtEl.southEast))
     end
-  end
-end
-end
 end
