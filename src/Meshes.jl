@@ -541,7 +541,8 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndex, isp
     @assert(length(isp) >= 2)
     curSecondIdx = 2
     firstIsp = isp[1]
-    while length(isp) <= curSecondIdx
+    while curSecondIdx <= length(isp)
+      println("$(curSecondIdx), $(length(isp))")
       secondIsp = isp[curSecondIdx]
 
       # intersection points can belong to two quadrants (if it's on an inner boundary)
@@ -556,7 +557,7 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndex, isp
         @assert(false)
       end
 
-      # create boundary vertices from intersection points and forward them to leaves
+      # create boundary vertices from intersection points and create a new empty leave
       leaveIndex = get_leave_from_pos(qt, parent_element, pos)
       leave = get(qt.values[leaveIndex])
       bv1 = BoundaryVertex(firstIsp.vt, pos, firstIsp.boundary, firstIsp.crossing_dir, firstIsp.vertex)
@@ -631,6 +632,12 @@ function OnChildrenCreated(qt::QuadTree, elIndex::ElIndex)
 
   mesh_element = get(qt.values[elIndex])
   qt_element = qt.elements[elIndex]
+
+  # create empty leaves for all children
+  qt.values[get(qt_element.northWest)] = MeshElement(Array{triangle_index, 1}(), None, BoundaryVertices(), Nullable{vertex_index}())
+  qt.values[get(qt_element.northEast)] = MeshElement(Array{triangle_index, 1}(), None, BoundaryVertices(), Nullable{vertex_index}())
+  qt.values[get(qt_element.southWest)] = MeshElement(Array{triangle_index, 1}(), None, BoundaryVertices(), Nullable{vertex_index}())
+  qt.values[get(qt_element.southEast)] = MeshElement(Array{triangle_index, 1}(), None, BoundaryVertices(), Nullable{vertex_index}())
 
   for bnd in mesh_element.boundaries
     propagate_intersections(qt, elIndex, bnd)

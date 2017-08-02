@@ -60,10 +60,10 @@
 
       # check all child elements
       function check_child_element(elIndex::QuadTreeMeshes.ElIndex)
-        check_leave_intersection(qt, elIndex, b1vs)
-        check_leave_intersection(qt, elIndex, v2bs)
+        check_leave_intersection(qt, elIndex, b1vs, Nullable{Int64}(vindex))
+        check_leave_intersection(qt, elIndex, vb2s, Nullable{Int64}(vindex))
         # check that there a no boundary intersections left
-        @test(length(qt.values[elIndex].boundaries) == 0)
+        @test(length(get(qt.values[elIndex]).boundaries) == 0)
       end
 
       check_child_element(get(qtEl.northWest))

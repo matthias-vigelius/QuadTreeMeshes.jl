@@ -15,26 +15,14 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
   if sb1_intersects
     push!(tinterPoints, sb1i)
   end
-  if sb2_intersects
-    push!(tinterPoints, sb2i)
-  end
   if eb1_intersects
     push!(tinterPoints, eb1i)
-  end
-  if eb2_intersects
-    push!(tinterPoints, eb2i)
   end
   if nb1_intersects
     push!(tinterPoints, nb1i)
   end
-  if nb2_intersects
-    push!(tinterPoints, nb12)
-  end
   if wb1_intersects
     push!(tinterPoints, wb1i)
-  end
-  if wb2_intersects
-    push!(tinterPoints, wb2i)
   end
 
   # remove duplicates
@@ -60,7 +48,7 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
     if ((vpx >= sb1[1] && vpx <= sb2[1]) && (vpy >= eb1[2] && vpy <= eb2[2]))
       # vertex is in element
       center_is_in_element = true
-      @test(!isnull(mesh_element.center) && get(mesh_element.center) == vindex)
+      @test(!isnull(mesh_element.center) && get(mesh_element.center) == get(center_vertex))
     else
       @test(isnull(mesh_element.center))
     end
