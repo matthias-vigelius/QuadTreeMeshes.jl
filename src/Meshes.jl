@@ -381,11 +381,13 @@ function triangulate_boundary_leave_with_vertex(mesh::QuadTreeMesh, elIndex::ElI
   end
 
   # create new mesh element and add to list
-  pos2 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd1Index], rt, lb)
   nbvv = BoundaryVertex(Inner, northWest, nnw, true, vIndex)
-  nbv1 = BoundaryVertex(Outer, northWest, pos2, true, bnd1Index)
+  pos1 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd1Index], rt, lb)
+  nbv1 = BoundaryVertex(Outer, northWest, pos1, true, bnd1Index)
+  pos2 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd2Index], rt, lb)
+  nbv2 = BoundaryVertex(Outer, northWest, pos2, true, bnd2Index)
 
-  new_mesh_element = MeshElement(triangle_indices, Center, [(nbvv, nbv1)], Nullable{vertex_index}(bnd2Index))
+  new_mesh_element = MeshElement(triangle_indices, Center, [(nbv1, nbvv), (nbvv, nbv2)], Nullable{vertex_index}(vIndex))
   qt.values[elIndex] = Nullable{QuadTreeMeshes.MeshElement}(new_mesh_element)
 end
 
@@ -562,6 +564,8 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndex, isp
       leave = get(qt.values[leaveIndex])
       bv1 = BoundaryVertex(firstIsp.vt, pos, firstIsp.boundary, firstIsp.crossing_dir, firstIsp.vertex)
       bv2 = BoundaryVertex(secondIsp.vt, pos, secondIsp.boundary, secondIsp.crossing_dir, firstIsp.vertex)
+      println("Quadtree is $qt")
+      println("Creating boundary vertices $bv1 and $bv2 for leave $leaveIndex parent element $parent_element")
       push!(leave.boundaries, (bv1, bv2))
       if (firstIsp.vt == Inner)
         leave.center = Nullable{vertex_index}(firstIsp.vertex)
@@ -603,16 +607,22 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tu
     nbv = BoundaryVertex(Outer, northWest, isp[4], isp[3], newVertexIndex)
     push!(allBoundaries,nbv)
   end
-  # if second boundary is an inner vertex, push last vertex and inner
+  # if second boundary is an inner vertex, push last intersection and inner
   # otherwise just push second vertex
   if b2.vt == Inner
-    # push last vertex and end with inner
-    push!(allBoundaries, b2)
+    # push last intersection and end with inner
+    isp = isps[length(isps)]
+    push!(qt.vertices, isp[2])
+    newVertexIndex = length(qt.vertices)
+    nbv = BoundaryVertex(Outer, northWest, isp[4], isp[3], newVertexIndex)
     push!(allBoundaries,nbv)
+    push!(allBoundaries, b2)
   else
     push!(allBoundaries, b2)
   end
 
+  println("Forwarding boundaries $allBoundaries")
+  #todo: hier weitermachen .. stimmt das? die innerBoundaryPos fuer die zweite sieht komisch aus.
   forward_boundaries_to_leaves(qt, parent_element, allBoundaries)
 end
 

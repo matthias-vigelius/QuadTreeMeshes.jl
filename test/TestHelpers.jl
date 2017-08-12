@@ -56,7 +56,7 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
   if center_is_in_element
     # we must have exactly two boundaries - one that starts at the center
     # and one that ends there
-    @assert(length(mesh_element.boundaries) == 2)
+    @assert(length(mesh_element.boundaries) == 2, "Element $elIndex is $mesh_element.")
     s, e = ls
     ls_starts_at_vertex = dot(s-vPoint, s-vPoint) <= 1e-10
     ls_ends_at_vertex = dot(e-vPoint, e-vPoint) <= 1e-10

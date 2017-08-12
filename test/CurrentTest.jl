@@ -37,6 +37,7 @@
       push!(qt.vertices, QuadTreeMeshes.Point(get_boundary_coordinates_from_index(b2index)))
       vb2Index = length(qt.vertices)
 
+
       # add center vertex (center of child bounding box)
       elBB = QuadTreeMeshes.get_element_bounding_box(qt, 1)
       vx = elBB.x + 0.25 * elBB.w + ((vpos == QuadTreeMeshes.northEast || vpos == QuadTreeMeshes.southEast) ? 1 : 0) * 0.25 * elBB.w 
@@ -48,6 +49,12 @@
 
       QuadTreeMeshes.triangulate_boundary_leave_with_vertex(mesh, 1, vb1Index, vb2Index, vindex)
       mesh_element = get(qt.values[1])
+
+      println("Quadtree before subdividing: $qt")
+      #filename = "triangulate_bndy_leave.html"
+      #Plots.plot(qt)
+      #Plots.plot!(mesh)
+      #Plots.savefig(filename)
 
       # subdivide new element
       QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
