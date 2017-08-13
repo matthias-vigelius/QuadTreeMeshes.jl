@@ -51,10 +51,11 @@
       mesh_element = get(qt.values[1])
 
       println("Quadtree before subdividing: $qt")
-      #filename = "triangulate_bndy_leave.html"
-      #Plots.plot(qt)
-      #Plots.plot!(mesh)
-      #Plots.savefig(filename)
+      filename = "triangulate_bndy_leave.html"
+      Plots.plot(qt)
+      Plots.plot!(mesh)
+      Plots.plot!(mesh, boundaries_only=true)
+      Plots.savefig(filename)
 
       # subdivide new element
       QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
