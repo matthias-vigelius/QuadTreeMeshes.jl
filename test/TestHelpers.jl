@@ -39,6 +39,9 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
     end
   end
 
+  # sort according to distance from start
+  sort!(interPoints, by = p -> dot((p-ls[1]), (p-ls[1])))
+
   npoints = length(interPoints)
 
   center_is_in_element = false
@@ -54,27 +57,28 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
     end
   end
   if center_is_in_element
-    # we must have exactly two boundaries - one that starts at the center
-    # and one that ends there
-    @assert(length(mesh_element.boundaries) == 2, "Element $elIndex is $mesh_element.")
+    # we must have at most two boundaries - one that starts at the center
+    # and one that ends there (there might have been one deleted already though)
+    @assert(length(mesh_element.boundaries) <= 2, "Element $elIndex is $mesh_element.")
     s, e = ls
     ls_starts_at_vertex = dot(s-vPoint, s-vPoint) <= 1e-10
     ls_ends_at_vertex = dot(e-vPoint, e-vPoint) <= 1e-10
     @assert((ls_starts_at_vertex && !ls_ends_at_vertex) || (!ls_starts_at_vertex && ls_ends_at_vertex))
-    found = Nullable{QuadTreeMeshes.BoundaryVertex}
-    for b in mesh_element.boundaries
-      if ls_starts_at_vertex && b[1].vt == Inner && b[1].vertex == get(center_vertex)
-        found = Nullable{QuadTreeMeshes.BoundaryVertex}(b[2])
-      elseif ls_ends_at_vertex && b[2].vt == Inner && b[2].vertex == get(center_vertex)
-        found = Nullable{QuadTreeMeshes.BoundaryVertex}(b[1])
+    found = Nullable{Tuple{Int, QuadTreeMeshes.BoundaryVertex}}()
+    for (bidx, b) in enumerate(mesh_element.boundaries)
+      if ls_starts_at_vertex && b[1].vt == QuadTreeMeshes.Inner && b[1].vertex == get(center_vertex)
+        found = Nullable{Tuple{Int, QuadTreeMeshes.BoundaryVertex}}((bidx, b[2]))
+      elseif ls_ends_at_vertex && b[2].vt == QuadTreeMeshes.Inner && b[2].vertex == get(center_vertex)
+        found = Nullable{Tuple{Int, QuadTreeMeshes.BoundaryVertex}}((bidx, b[1]))
       end
     end
     @assert(!isnull(found))
-    boundary_vertex_point = qt.vertices[get(found).vertex]
+    foundBoundary, foundVertex = get(found)
+    boundary_vertex_point = qt.vertices[foundVertex.vertex]
     @assert(length(interPoints) == 1)
     dist = boundary_vertex_point - interPoints[1]
     @test(dot(dist, dist) <= 1e-10)
-    mesh_element.boundaries = deletat!(mesh_element.boundaries, get(found))
+    mesh_element.boundaries = deleteat!(mesh_element.boundaries, foundBoundary)
   else
     @assert(length(interPoints) <= 2)
     if length(interPoints) > 0
@@ -95,9 +99,9 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
         if dot(db1, db1) <= 1e-10 && dot(db2, db2) <= 1e-10
           found = Nullable{Int}(ind)
         end
-        @assert(!isnull(found))
-        mesh_element.boundaries = deletat!(mesh_element.boundaries, get(found))
       end
+      @assert(!isnull(found))
+      mesh_element.boundaries = deleteat!(mesh_element.boundaries, get(found))
     end
   end
 end
