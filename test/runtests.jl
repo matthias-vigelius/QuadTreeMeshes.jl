@@ -2,8 +2,12 @@ import QuadTreeMeshes
 using Base.Test
 import GeometryTypes
 
-import Plots
-Plots.plotlyjs()
+plot = true
+
+if plot==true
+    import Plots
+    Plots.plotlyjs()
+end
 
 include("TestHelpers.jl")
 include("CurrentTest.jl")

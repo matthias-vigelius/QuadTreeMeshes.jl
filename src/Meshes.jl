@@ -307,7 +307,6 @@ function triangulate_boundary_leave_with_vertex(mesh::QuadTreeMesh, elIndex::ElI
   bd2pos = get_vertex_pos_on_boundary(c, qt.vertices[bnd2Index])
 
   triangle_indices = Array{Int64, 1}()
-  @assert(bd1pos != northWest || bd2pos != northWest)
   if bd1pos != northWest && bd2pos != northWest
       triangle = Triangle([qtEl.bbLeftTopIndex, vIndex, qtEl.bbRightTopIndex])
       push!(mesh.triangles, triangle)
@@ -325,7 +324,6 @@ function triangulate_boundary_leave_with_vertex(mesh::QuadTreeMesh, elIndex::ElI
     push!(mesh.triangles, triangle)
     push!(triangle_indices, length(mesh.triangles))
   end
-  @assert(bd1pos != northEast || bd2pos != northEast)
   if bd1pos != northEast && bd2pos != northEast
       triangle = Triangle([qtEl.bbLeftTopIndex, vIndex, qtEl.bbRightTopIndex])
       push!(mesh.triangles, triangle)
@@ -343,7 +341,6 @@ function triangulate_boundary_leave_with_vertex(mesh::QuadTreeMesh, elIndex::ElI
     push!(mesh.triangles, triangle)
     push!(triangle_indices, length(mesh.triangles))
   end
-  @assert(bd1pos != southWest || bd2pos != southWest)
   if bd1pos != southWest && bd2pos != southWest
       triangle = Triangle([qtEl.bbLeftBottomIndex, vIndex, qtEl.bbRightBottomIndex])
       push!(mesh.triangles, triangle)
@@ -361,7 +358,6 @@ function triangulate_boundary_leave_with_vertex(mesh::QuadTreeMesh, elIndex::ElI
     push!(mesh.triangles, triangle)
     push!(triangle_indices, length(mesh.triangles))
   end
-  @assert(bd1pos != southEast || bd2pos != southEast)
   if bd1pos != southEast && bd2pos != southEast
       triangle = Triangle([qtEl.bbLeftBottomIndex, vIndex, qtEl.bbRightBottomIndex])
       push!(mesh.triangles, triangle)

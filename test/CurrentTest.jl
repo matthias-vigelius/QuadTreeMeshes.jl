@@ -1,8 +1,12 @@
-@testset "Update boundaries with vertices" begin
+@testset "Update boundaries with vertices" begin for b2index=9:9 begin
     b1index = 1
-    b2index = 4
     vpos = 1
-    #println("------------------Testing ($(b1index), $(b2index))")
+
+    if b1index == b2index
+      continue
+    end
+
+    print_with_color(:yellow, "------------------Testing ($(b1index), $(b2index), $vpos)\n")
     # add boundaries to single element
     x0, y0 = 2.0, 3.0
     dx, dy = 4.0, 4.0
@@ -50,11 +54,13 @@
     QuadTreeMeshes.triangulate_boundary_leave_with_vertex(mesh, 1, vb1Index, vb2Index, vindex)
     mesh_element = get(qt.values[1])
 
-    filename = "triangulate_bndy_leave.html"
-    Plots.plot(qt)
-    Plots.plot!(mesh)
-    Plots.plot!(mesh, boundaries_only=true)
-    Plots.savefig(filename)
+    if plot==true
+      filename = "triangulate_bndy_leave.html"
+      Plots.plot(qt)
+      Plots.plot!(mesh)
+      Plots.plot!(mesh, boundaries_only=true)
+      Plots.savefig(filename)
+    end
 
     # subdivide new element
     QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
@@ -77,4 +83,6 @@
     check_child_element(get(qtEl.northEast))
     check_child_element(get(qtEl.southWest))
     check_child_element(get(qtEl.southEast))
+end
+end
 end
