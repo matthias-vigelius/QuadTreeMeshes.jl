@@ -358,26 +358,33 @@ function get_element_bounding_box(qt::QuadTree, elIndex::ElIndex)
   return get_element_bounding_box(qt, qtEl)
 end
 
-function get_child_position_from_coordinate(qt::QuadTree, qtEl::ElIndex, coord::Point)
+function get_child_positions_from_coordinate(qt::QuadTree, qtEl::ElIndex, coord::Point)
   bb = get_element_bounding_box(qt, qtEl)
   cx, cy = coord
   xbl, ybl, w, h = bb.x, bb.y, bb.x + bb.w, bb.y + bb.h
   @assert(cx >= bb.x && cx <= bb.x + bb.w && cy >= bb.y && cy <= bb.y + bb.h)
-  if cx >= bb.x + 0.5 * bb.w
-    if cy >= bb.y + 0.5 * bb.h
-      return northEast
-    else
-      return southEast
+  tol = 1e-5
+  retPositions = Array{POS, 1}()
+  #print_with_color(:blue, "Comparing ($cx, $cy) with ($(bb.x + 0.5 * bb.w), $(bb.y + 0.5 * bb.h))")
+  if cy > bb.y + 0.5 * bb.h - tol
+    if cx > bb.x + 0.5 * bb.w - tol
+      push!(retPositions, northWest)
     end
-  else
-    if cy >= bb.y + 0.5 * bb.h
-      return northWest
-    else
-      return southWest
+    if cx < bb.x + 0.5 * bb.w + tol
+      push!(retPositions, northEast)
     end
   end
-end
+  if cy < bb.y + 0.5 * bb.h + tol
+    if cx < bb.x + 0.5 * bb.w + tol
+      push!(retPositions, southWest)
+    end
+    if cx > bb.x + 0.5 * bb.w - tol
+      push!(retPositions, southEast)
+    end
+  end
 
+  return retPositions
+end
 
 function query(qt::QuadTree, testFunction, curElIndex::ElIndex, els::Array{ElIndex, 1})
   if !testFunction(get_element_bounding_box(qt, curElIndex))

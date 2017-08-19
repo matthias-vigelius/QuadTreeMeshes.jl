@@ -1,91 +1,53 @@
-@testset "Update boundaries with vertices" begin for b2index=1:16 begin for b1index = 1:16 for evpos = 1:4 begin begin
-    if b1index == b2index
-      continue
-    end
+@testset "Update boundaries" begin for b1index in 1:16, b2index in 9:16 begin
+    q1 = floor((b1index - 1)/4)
+    q2 = floor((b2index - 1)/4)
 
-    vpos = QuadTreeMeshes.POS(evpos)
+    if q1 != q2
+      #b1index = 1
+      #b2index = 9
 
-    #print_with_color(:yellow, "------------------Testing ($(b1index), $(b2index), $vpos)\n")
-    # add boundaries to single element
-    x0, y0 = 2.0, 3.0
-    dx, dy = 4.0, 4.0
-    bb = GeometryTypes.SimpleRectangle(x0, y0, dx, dy)
-    mesh = QuadTreeMeshes.QuadTreeMesh(bb)
-    qt = mesh.quadtree
-    qtEl = qt.elements[1]
+      print_with_color(:yellow, "------------------Testing ($(b1index), $(b2index))\n")
+      # add boundaries to single element
+      bb = GeometryTypes.SimpleRectangle(2.0, 3.0, 4.0, 4.0)
+      mesh = QuadTreeMeshes.QuadTreeMesh(bb)
+      qt = mesh.quadtree
+      qtEl = qt.elements[1]
 
-    function get_boundary_coordinates_from_index(bndy_index::Int64)
-      # get quad tree element
-      if bndy_index <= 4
-        b1, b2 = qtEl.bbLeftBottomIndex, qtEl.bbRightBottomIndex
-      elseif bndy_index <= 8
-        b1, b2 = qtEl.bbRightBottomIndex, qtEl.bbRightTopIndex
-      elseif bndy_index <= 12
-        b1, b2 = qtEl.bbRightTopIndex, qtEl.bbLeftTopIndex
-      else
-        b1, b2 = qtEl.bbLeftTopIndex, qtEl.bbLeftBottomIndex
+      # add boundary vertices
+      push!(qt.vertices, QuadTreeMeshes.Point(get_boundary_coordinates_from_index(b1index, qtEl, qt)))
+      vb1Index = length(qt.vertices)
+      push!(qt.vertices, QuadTreeMeshes.Point(get_boundary_coordinates_from_index(b2index, qtEl, qt)))
+      vb2Index = length(qt.vertices)
+
+      QuadTreeMeshes.triangulate_boundary_leave(mesh, 1, vb1Index, vb2Index)
+      mesh_element = get(qt.values[1])
+
+      if plot==true
+        filename = "triangulate_bndy_leave.html"
+        Plots.plot(qt)
+        Plots.plot!(mesh, boundaries_only=true)
+        Plots.savefig(filename)
       end
 
-      inner_index = (bndy_index - 1) % 4
-      x1, x2 = qt.vertices[b1], qt.vertices[b2]
-      ds = x2 - x1
-      pos = x1 + ds * (0.125 + inner_index * 0.25)
+      # subdivide new element
+      QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
 
-      return pos
+      b1, b2 = qt.vertices[vb1Index], qt.vertices[vb2Index]
+      b1b2s = GeometryTypes.LineSegment(b1, b2)
+
+      function check_child_element(elIndex::QuadTreeMeshes.ElIndex)
+        check_leave_intersection(qt, elIndex, b1b2s, Nullable{Int64}())
+        # check that there a no boundary intersections left
+        @test(length(get(qt.values[elIndex]).boundaries) == 0)
+      end
+
+      # check all child elements
+      check_child_element(get(qtEl.northWest))
+      check_child_element(get(qtEl.northEast))
+      check_child_element(get(qtEl.southWest))
+      check_child_element(get(qtEl.southEast))
     end
-
-    # add boundary vertices
-    push!(qt.vertices, QuadTreeMeshes.Point(get_boundary_coordinates_from_index(b1index)))
-    vb1Index = length(qt.vertices)
-    push!(qt.vertices, QuadTreeMeshes.Point(get_boundary_coordinates_from_index(b2index)))
-    vb2Index = length(qt.vertices)
-
-
-    # add center vertex (center of child bounding box)
-    elBB = QuadTreeMeshes.get_element_bounding_box(qt, 1)
-    vx = elBB.x + 0.25 * elBB.w + ((vpos == QuadTreeMeshes.northEast || vpos == QuadTreeMeshes.southEast) ? 1 : 0) * 0.5 * elBB.w 
-    vy = elBB.y + 0.25 * elBB.h + ((vpos == QuadTreeMeshes.northWest || vpos == QuadTreeMeshes.northEast) ? 1 : 0) * 0.5 * elBB.h 
-    vPoint = QuadTreeMeshes.Point(vx, vy)
-
-    push!(qt.vertices, vPoint)
-    vindex = length(qt.vertices)
-
-    QuadTreeMeshes.triangulate_boundary_leave_with_vertex(mesh, 1, vb1Index, vb2Index, vindex)
-    mesh_element = get(qt.values[1])
-
-    if plot==true
-      filename = "triangulate_bndy_leave.html"
-      Plots.plot(qt)
-      Plots.plot!(mesh)
-      Plots.plot!(mesh, boundaries_only=true)
-      Plots.savefig(filename)
-    end
-
-    # subdivide new element
-    QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
-
-    # compute intersection points of boundary with bounding box
-    b1, b2 = qt.vertices[vb1Index], qt.vertices[vb2Index]
-    v = qt.vertices[vindex]
-    b1vs = GeometryTypes.LineSegment(b1, v)
-    vb2s = GeometryTypes.LineSegment(v, b2)
-
-    # check all child elements
-    function check_child_element(elIndex::QuadTreeMeshes.ElIndex)
-      check_leave_intersection(qt, elIndex, b1vs, Nullable{Int64}(vindex))
-      check_leave_intersection(qt, elIndex, vb2s, Nullable{Int64}(vindex))
-      # check that there a no boundary intersections left
-      @test(length(get(qt.values[elIndex]).boundaries) == 0)
-    end
-
-    check_child_element(get(qtEl.northWest))
-    check_child_element(get(qtEl.northEast))
-    check_child_element(get(qtEl.southWest))
-    check_child_element(get(qtEl.southEast))
+  end
 end
 end
-end
-end
-end
-end
-end
+

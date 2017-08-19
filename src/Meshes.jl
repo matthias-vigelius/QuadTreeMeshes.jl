@@ -1,6 +1,6 @@
 @enum Boundary None=1 Sides=2 Center=3
 @enum VertexType Inner=1 Outer=2
-@enum InnerBoundaryPos  nnw = 1 nne = 2 nee = 3 see =4 sse = 5 ssw = 6 sww = 7 nww = 8 n = 9 s = 10 w = 11 e = 12
+@enum InnerBoundaryPos  nnw = 1 nne = 2 nee = 3 see =4 sse = 5 ssw = 6 sww = 7 nww = 8 n = 9 s = 10 w = 11 e = 12 nw = 13 ne = 14 sw = 15 se = 16 nnn = 17 eee = 18 sss = 19 www = 20
 
 type BoundaryVertex
   vt::VertexType # needed
@@ -520,34 +520,53 @@ function intersect_with_leave(lbs::LeaveBoundarySegments, ls::GeometryTypes.Simp
   # sort them according to distance from start point
   sort!(isp, lt = (is1, is2) -> return is1[1] < is2[1])
 
+  # hier weitermachen: wir mussen auf endpunkte explizit checken
+  # Idee: alle zusammenfassen, die naeher als 1e-5 distance liegen
+  #  z.B. n + nne => nnn, n + nnw => nnn, nne (wenn naeher als 1e-5 an ne) => ne
+  #  usw.. dann muessen diese in get_quadrants_ .. ebenfalls beruecksichtigt werden
+
   return isp
 end
 
 function get_quadrant_from_boundary_position(qt::QuadTree, elIndex::ElIndex, intersectionPoint::BoundaryVertex)
   if intersectionPoint.vt == Outer
     ips = intersectionPoint.boundary
-    if ips == nnw || ips == nww
-      return (northWest, northWest)
-    elseif ips == nne || ips == nee
-      return (northEast, northEast)
-    elseif ips == sse || ips == see
-      return (southEast, southEast)
-    elseif ips == ssw || ips == sww
-      return (southWest, southWest)
-    elseif ips == n
-      return (northWest, northEast)
-    elseif ips == s
-      return (southWest, southEast)
-    elseif ips == w
-      return (northWest, southWest)
-    elseif ips == e
-      return (northEast, southEast)
+    print_with_color(:blue, "Checking intersection point $ips.\n")
+    retVal = Array{POS, 1}()
+    if ips == nnw || ips == nww || ips == n || ips == w
+      push!(retVal, northWest)
     end
+    if ips == nne || ips == nee || ips == n || ips == e
+      push!(retVal, northEast)
+    end
+    if ips == sse || ips == see || ips == s || ips == e
+      push!(retVal, southEast)
+    end
+    if ips == ssw || ips == sww || ips == s || ips == w
+      push!(retVal, southWest)
+    end
+    return retVal
   elseif intersectionPoint.vt == Inner
     vpp = qt.vertices[intersectionPoint.vertex]
-    pos = get_child_position_from_coordinate(qt, elIndex, vpp)
-    return (pos, pos)
+    pos = get_child_positions_from_coordinate(qt, elIndex, vpp)
+    return pos
   end
+end
+
+function find_first_common_position(first::Array{POS, 1}, second::Array{POS,1})
+  # we assume the input is sorted (which is the case if it comes from get_quadrant_from_boundary_position)
+  firstIdx = 1
+  secondIdx = 1
+  while firstIdx <= length(first) && secondIdx <= length(second)
+    if first[firstIdx] == second[secondIdx]
+      return Nullable{POS}(first[firstIdx])
+    elseif first[firstIdx] < second[secondIdx] # apparently we can compare enums..
+      firstIdx = firstIdx + 1 
+    else
+      secondIdx = secondIdx + 1
+    end
+  end
+  @assert(false, "No common position found for $first and $second.")
 end
 
 # we assume that the members of isp have corrrect boundary, vertex_type, crossing_dir
@@ -561,17 +580,12 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndex, isp
     while curSecondIdx <= length(isp)
       secondIsp = isp[curSecondIdx]
 
-      # intersection points can belong to two quadrants (if it's on an inner boundary)
+      # intersection points can belong to up to four quadrants (if it's on an inner boundary)
       # but at least one of the options should match
-      firstPos = get_quadrant_from_boundary_position(qt, parent_element, firstIsp)
-      secondPos = get_quadrant_from_boundary_position(qt, parent_element, secondIsp)
-      if firstPos[1] == secondPos[1] || firstPos[1] == secondPos[2]
-        pos = firstPos[1]
-      elseif firstPos[2] == secondPos[1] || firstPos[2] == secondPos[2]
-        pos = firstPos[2]
-      else
-        @assert(false, "Found two different quadrants $firstPos and $secondPos for intersectioni points $(qt.vertices[firstIsp.vertex]) and $(qt.vertices[secondIsp.vertex]).")
-      end
+      print_with_color(:green, "Testing  $(qt.vertices[firstIsp.vertex]) and $(qt.vertices[secondIsp.vertex]).")
+      firstPoss = get_quadrant_from_boundary_position(qt, parent_element, firstIsp)
+      secondPoss = get_quadrant_from_boundary_position(qt, parent_element, secondIsp)
+      pos = find_first_common_position(firstPoss, secondPoss)
 
       # create boundary vertices from intersection points and create a new empty leave
       leaveIndex = get_leave_from_pos(qt, parent_element, pos)
@@ -636,14 +650,12 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tu
     push!(allBoundaries, b2)
   end
 
-  #=
   for b in allBoundaries
     print_with_color(:green, "$(b.vertex) => $(qt.vertices[b.vertex])\n")
   end
   for i in isps
     print_with_color(:blue, "$(i[2])\n")
   end
-  =#
 
   forward_boundaries_to_leaves(qt, parent_element, allBoundaries)
 end

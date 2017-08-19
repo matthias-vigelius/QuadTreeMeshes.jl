@@ -1,3 +1,24 @@
+function get_boundary_coordinates_from_index(bndy_index::Int64, qtEl::QuadTreeMeshes.QuadTreeElement, qt::QuadTreeMeshes.QuadTree)
+  # get quad tree element
+
+  if bndy_index <= 4
+    b1, b2 = qtEl.bbLeftBottomIndex, qtEl.bbRightBottomIndex
+  elseif bndy_index <= 8
+    b1, b2 = qtEl.bbRightBottomIndex, qtEl.bbRightTopIndex
+  elseif bndy_index <= 12
+    b1, b2 = qtEl.bbRightTopIndex, qtEl.bbLeftTopIndex
+  else
+    b1, b2 = qtEl.bbLeftTopIndex, qtEl.bbLeftBottomIndex
+  end
+
+  inner_index = (bndy_index - 1) % 4
+  x1, x2 = qt.vertices[b1], qt.vertices[b2]
+  ds = x2 - x1
+  pos = x1 + ds * (0.125 + inner_index * 0.25)
+
+  return pos
+end
+
 function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTreeMeshes.ElIndex, ls::GeometryTypes.Simplex{2, QuadTreeMeshes.Point}, center_vertex::Nullable{QuadTreeMeshes.vertex_index})
   qt_element = qt.elements[elIndex]
   mesh_element = get(qt.values[elIndex])

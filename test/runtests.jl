@@ -2,7 +2,7 @@ import QuadTreeMeshes
 using Base.Test
 import GeometryTypes
 
-plot = false
+plot = true
 
 if plot==true
     import Plots
@@ -12,4 +12,5 @@ end
 include("TestHelpers.jl")
 include("CurrentTest.jl")
 
+#include("MeshTests.jl")
 #include("QuadTreeTests.jl")
