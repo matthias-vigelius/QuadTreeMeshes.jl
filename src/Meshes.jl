@@ -570,7 +570,7 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndex, isp
       elseif firstPos[2] == secondPos[2]
         pos = firstPos[2]
       else
-        @assert(false)
+        @assert(false, "Found two different quadrants $firstPos and $secondPos for intersectioni points $(qt.vertices[firstIsp.vertex]) and $(qt.vertices[secondIsp.vertex]).")
       end
 
       # create boundary vertices from intersection points and create a new empty leave
@@ -624,8 +624,8 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tu
   # otherwise just push second vertex
   if b2.vt == Inner
     # push last intersection and end with inner
-    if length(usedIsps) > 0
-      isp = usedIsps[length(usedIsps)]
+    if length(isps) >= startIndex
+      isp = isps[length(isps)]
       push!(qt.vertices, isp[2])
       newVertexIndex = length(qt.vertices)
       nbv = BoundaryVertex(Outer, northWest, isp[4], isp[3], newVertexIndex)

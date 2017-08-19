@@ -1,5 +1,4 @@
-@testset "Update boundaries with vertices" begin for b2index=1:16 begin
-    b1index = 1
+@testset "Update boundaries with vertices" begin for b2index=1:16 begin for b1index = 1:16 begin
     vpos = 1
 
     if b1index == b2index
@@ -83,6 +82,8 @@
     check_child_element(get(qtEl.northEast))
     check_child_element(get(qtEl.southWest))
     check_child_element(get(qtEl.southEast))
+end
+end
 end
 end
 end
