@@ -2,7 +2,7 @@ import QuadTreeMeshes
 using Base.Test
 import GeometryTypes
 
-plot = true
+plot = false
 
 if plot==true
     import Plots

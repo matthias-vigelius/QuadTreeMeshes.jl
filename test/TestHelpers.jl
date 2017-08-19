@@ -86,8 +86,6 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
         input_boundary = (interPoints[1], interPoints[1])
       elseif length(interPoints) == 2
         input_boundary = (interPoints[1], interPoints[2])
-      else
-        @assert(false)
       end
       found = Nullable{Int}()
       for (ind, b) in enumerate(mesh_element.boundaries)
@@ -98,6 +96,13 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
         db2 = b2p - input_boundary[2]
         if dot(db1, db1) <= 1e-10 && dot(db2, db2) <= 1e-10
           found = Nullable{Int}(ind)
+        end
+      end
+      if isnull(found)
+        print_with_color(:red, "No suitable boundaries found. Intersection points $(interPoints)\n")
+        for b in mesh_element.boundaries
+          b1, b2 = b
+          print_with_color(:green, "$(b1.vertex) [$(qt.vertices[b1.vertex])] -> $(b2.vertex) [$(qt.vertices[b2.vertex])]\n") 
         end
       end
       @assert(!isnull(found))

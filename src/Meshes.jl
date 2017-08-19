@@ -424,7 +424,7 @@ type LeaveBoundarySegments
     # create segments - make sure they always point in positive x/y dir
     nnw_segment = GeometryTypes.LineSegment(qt.vertices[nw_vertex], qt.vertices[n_vertex])
     nne_segment = GeometryTypes.LineSegment(qt.vertices[n_vertex], qt.vertices[ne_vertex])
-    nee_segment = GeometryTypes.LineSegment(qt.vertices[e_vertex], qt.vertices[n_vertex])
+    nee_segment = GeometryTypes.LineSegment(qt.vertices[e_vertex], qt.vertices[ne_vertex])
     see_segment = GeometryTypes.LineSegment(qt.vertices[se_vertex], qt.vertices[e_vertex])
     sse_segment = GeometryTypes.LineSegment(qt.vertices[s_vertex], qt.vertices[se_vertex])
     ssw_segment = GeometryTypes.LineSegment(qt.vertices[sw_vertex], qt.vertices[s_vertex])
@@ -437,6 +437,25 @@ type LeaveBoundarySegments
 
     new(nnw_segment, nne_segment, nee_segment, see_segment, sse_segment, ssw_segment, sww_segment, nww_segment, n_segment, s_segment, w_segment, e_segment)
   end
+end
+
+function String(x::LeaveBoundarySegments)
+  restr = """
+$(x.nnw_segment)
+$(x.nne_segment)
+$(x.nee_segment)
+$(x.see_segment)
+$(x.sse_segment)
+$(x.ssw_segment)
+$(x.sww_segment)
+$(x.nww_segment)
+$(x.nww_segment)
+$(x.n_segment)
+$(x.e_segment)
+$(x.s_segment)
+$(x.w_segment)
+"""
+  return restr
 end
 
 function intersect(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegment)

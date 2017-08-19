@@ -1,4 +1,4 @@
-@testset "Update boundaries with vertices" begin for b2index=9:9 begin
+@testset "Update boundaries with vertices" begin for b2index=1:16 begin
     b1index = 1
     vpos = 1
 
