@@ -1,11 +1,11 @@
-@testset "Update boundaries with vertices" begin for b2index=1:16 begin for b1index = 1:16 begin
-    vpos = 1
-
+@testset "Update boundaries with vertices" begin for b2index=1:16 begin for b1index = 1:16 for evpos = 1:4 begin begin
     if b1index == b2index
       continue
     end
 
-    print_with_color(:yellow, "------------------Testing ($(b1index), $(b2index), $vpos)\n")
+    vpos = QuadTreeMeshes.POS(evpos)
+
+    #print_with_color(:yellow, "------------------Testing ($(b1index), $(b2index), $vpos)\n")
     # add boundaries to single element
     x0, y0 = 2.0, 3.0
     dx, dy = 4.0, 4.0
@@ -43,8 +43,8 @@
 
     # add center vertex (center of child bounding box)
     elBB = QuadTreeMeshes.get_element_bounding_box(qt, 1)
-    vx = elBB.x + 0.25 * elBB.w + ((vpos == QuadTreeMeshes.northEast || vpos == QuadTreeMeshes.southEast) ? 1 : 0) * 0.25 * elBB.w 
-    vy = elBB.y + 0.25 * elBB.h + ((vpos == QuadTreeMeshes.southWest || vpos == QuadTreeMeshes.southEast) ? 1 : 0) * 0.25 * elBB.h 
+    vx = elBB.x + 0.25 * elBB.w + ((vpos == QuadTreeMeshes.northEast || vpos == QuadTreeMeshes.southEast) ? 1 : 0) * 0.5 * elBB.w 
+    vy = elBB.y + 0.25 * elBB.h + ((vpos == QuadTreeMeshes.northWest || vpos == QuadTreeMeshes.northEast) ? 1 : 0) * 0.5 * elBB.h 
     vPoint = QuadTreeMeshes.Point(vx, vy)
 
     push!(qt.vertices, vPoint)
@@ -82,6 +82,8 @@
     check_child_element(get(qtEl.northEast))
     check_child_element(get(qtEl.southWest))
     check_child_element(get(qtEl.southEast))
+end
+end
 end
 end
 end

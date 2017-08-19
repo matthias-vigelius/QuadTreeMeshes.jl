@@ -565,9 +565,9 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndex, isp
       # but at least one of the options should match
       firstPos = get_quadrant_from_boundary_position(qt, parent_element, firstIsp)
       secondPos = get_quadrant_from_boundary_position(qt, parent_element, secondIsp)
-      if firstPos[1] == secondPos[1]
+      if firstPos[1] == secondPos[1] || firstPos[1] == secondPos[2]
         pos = firstPos[1]
-      elseif firstPos[2] == secondPos[2]
+      elseif firstPos[2] == secondPos[1] || firstPos[2] == secondPos[2]
         pos = firstPos[2]
       else
         @assert(false, "Found two different quadrants $firstPos and $secondPos for intersectioni points $(qt.vertices[firstIsp.vertex]) and $(qt.vertices[secondIsp.vertex]).")
@@ -635,6 +635,15 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tu
   else
     push!(allBoundaries, b2)
   end
+
+  #=
+  for b in allBoundaries
+    print_with_color(:green, "$(b.vertex) => $(qt.vertices[b.vertex])\n")
+  end
+  for i in isps
+    print_with_color(:blue, "$(i[2])\n")
+  end
+  =#
 
   forward_boundaries_to_leaves(qt, parent_element, allBoundaries)
 end
