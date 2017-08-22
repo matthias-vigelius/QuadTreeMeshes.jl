@@ -501,6 +501,38 @@ function fill_if_intersects(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.L
   end
 end
 
+function check_for_single_endpoint(ls::GeometryTypes.LineSegment, isp::Point, ibpd::InnerBoundaryPos, ibpl::InnerBoundaryPos, ibpr::InnerBoundaryPos)
+  s, e = ls
+
+  ds = dot((s-isp), (s-isp))
+  if (ds < 1e-5^2)
+    return ibpl
+  end
+  de = dot((e-isp), (e-isp))
+  if (de < 1e-5^2)
+    return ibpr
+  end
+
+  return ibpd
+end
+
+function check_for_endpoint(lbs::LeaveBoundarySegments, isp::Point, ibpd::InnerBoundaryPos)
+  ibpd = check_for_single_endpoint(lbs.nnw_segment, isp, ibpd, nw, nnn)
+  ibpd = check_for_single_endpoint(lbs.nne_segment, isp, ibpd, nnn, ne)
+  ibpd = check_for_single_endpoint(lbs.nee_segment, isp, ibpd, e, ne)
+  ibpd = check_for_single_endpoint(lbs.see_segment, isp, ibpd, se, e)
+  ibpd = check_for_single_endpoint(lbs.sse_segment, isp, ibpd, sss, se)
+  ibpd = check_for_single_endpoint(lbs.ssw_segment, isp, ibpd, sw, sss)
+  ibpd = check_for_single_endpoint(lbs.sww_segment, isp, ibpd, sw, w)
+  ibpd = check_for_single_endpoint(lbs.nww_segment, isp, ibpd, w, nw)
+  ibpd = check_for_single_endpoint(lbs.n_segment, isp, ibpd, c, nnn)
+  ibpd = check_for_single_endpoint(lbs.s_segment, isp, ibpd, sss, c)
+  ibpd = check_for_single_endpoint(lbs.w_segment, isp, ibpd, w, c)
+  ibpd = check_for_single_endpoint(lbs.e_segment, isp, ibpd, c, e)
+
+  return ibpd
+end
+
 function intersect_with_leave(lbs::LeaveBoundarySegments, ls::GeometryTypes.Simplex{2, Point})
   # get all intersections with all relevant boundary segments
   isp = Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}, 1}()
@@ -521,9 +553,11 @@ function intersect_with_leave(lbs::LeaveBoundarySegments, ls::GeometryTypes.Simp
   sort!(isp, lt = (is1, is2) -> return is1[1] < is2[1])
 
   # hier weitermachen: wir mussen auf endpunkte explizit checken
-  # Idee: alle zusammenfassen, die naeher als 1e-5 distance liegen
-  #  z.B. n + nne => nnn, n + nnw => nnn, nne (wenn naeher als 1e-5 an ne) => ne
+  # Idee: Alle intersection points auf segment endpunkte checken (naeher als 1e-5)
+  # und diese dann in nnn, ne, etc. umwandeln
   #  usw.. dann muessen diese in get_quadrants_ .. ebenfalls beruecksichtigt werden
+  # duplicate entfernen.
+  isp = map(p -> check_for_endpoint(lbs, isp[2], isp[4]), isp)
 
   return isp
 end
