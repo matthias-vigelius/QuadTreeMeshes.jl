@@ -424,7 +424,7 @@ type LeaveBoundarySegments
     # create segments - make sure they always point in positive x/y dir
     nnw_segment = GeometryTypes.LineSegment(qt.vertices[nw_vertex], qt.vertices[n_vertex])
     nne_segment = GeometryTypes.LineSegment(qt.vertices[n_vertex], qt.vertices[ne_vertex])
-    nee_segment = GeometryTypes.LineSegment(qt.vertices[e_vertex], qt.vertices[n_vertex])
+    nee_segment = GeometryTypes.LineSegment(qt.vertices[e_vertex], qt.vertices[ne_vertex])
     see_segment = GeometryTypes.LineSegment(qt.vertices[se_vertex], qt.vertices[e_vertex])
     sse_segment = GeometryTypes.LineSegment(qt.vertices[s_vertex], qt.vertices[se_vertex])
     ssw_segment = GeometryTypes.LineSegment(qt.vertices[sw_vertex], qt.vertices[s_vertex])
@@ -478,6 +478,7 @@ end
 function fill_if_intersects(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegment, isp::Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}, 1}, ibp::InnerBoundaryPos)
   i, t, p, s = intersect(ls1, ls2)
   if i
+    #print("Pushing point $p from $ls1 -> $ls2\n")
     push!(isp, (t, p, s, ibp))
   end
 end
@@ -576,7 +577,9 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndex, isp
 end
 
 function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tuple{BoundaryVertex, BoundaryVertex})
-  lbs = LeaveBoundarySegments(qt, parent_element) # TODO: can probably pull that out of the function
+  # comppute intersection points of boundary with all segments of subdivided leave
+  # TODO: can probably pull that out of the function
+  lbs = LeaveBoundarySegments(qt, parent_element)
   b1, b2 = bndy
   ls1p1 = qt.vertices[b1.vertex]
   ls1p2 = qt.vertices[b2.vertex]
@@ -589,10 +592,14 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tu
     startIndex = 1
     push!(allBoundaries, b1)
   else
-    # ignore first intersection point
+    # ignore first intersection point - it is a bndy point of the parent
     startIndex = 2
     push!(allBoundaries, b1)
   end
+
+  # create vertices for all intersections except
+  # first one (if it's an inner boundary) and last
+  # one
   usedIsps = isps[startIndex:length(isps)-1]
   for isp in usedIsps
     # create vertex and make it into an boundary vertex
@@ -601,6 +608,7 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tu
     nbv = BoundaryVertex(Outer, northWest, isp[4], isp[3], newVertexIndex)
     push!(allBoundaries,nbv)
   end
+
   # if second boundary is an inner vertex, add last intersection as vertex and push inner vertex
   # otherwise just push second vertex
   if b2.vt == Inner
@@ -616,6 +624,11 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tu
   else
     push!(allBoundaries, b2)
   end
+
+  for b in allBoundaries
+    print("$(qt.vertices[b.vertex]),")
+  end
+  print("\n")
 
   forward_boundaries_to_leaves(qt, parent_element, allBoundaries)
 end

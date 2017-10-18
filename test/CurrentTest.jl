@@ -54,6 +54,9 @@
     QuadTreeMeshes.triangulate_boundary_leave_with_vertex(mesh, 1, vb1Index, vb2Index, vindex)
     mesh_element = get(qt.values[1])
 
+    # subdivide new element
+    QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
+
     if plot==true
       filename = "triangulate_bndy_leave.html"
       Plots.plot(qt)
@@ -61,9 +64,6 @@
       Plots.plot!(mesh, boundaries_only=true)
       Plots.savefig(filename)
     end
-
-    # subdivide new element
-    QuadTreeMeshes.subdivide!(qt, 1, QuadTreeMeshes.OnChildrenCreated)
 
     # compute intersection points of boundary with bounding box
     b1, b2 = qt.vertices[vb1Index], qt.vertices[vb2Index]

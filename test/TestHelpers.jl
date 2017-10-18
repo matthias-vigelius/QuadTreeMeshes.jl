@@ -100,7 +100,20 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
           found = Nullable{Int}(ind)
         end
       end
-      @assert(!isnull(found))
+      #@assert(!isnull(found))
+      if (isnull(found))
+        print_with_color(:red, "Intersection points:")
+        print_with_color(:yellow, "$(interPoints)\n")
+        print_with_color(:red, "boundaries:")
+        for b in mesh_element.boundaries
+          b1, b2 = b
+          b1p = qt.vertices[b1.vertex]
+          b2p = qt.vertices[b2.vertex]
+          print_with_color(:yellow, "($(b1p)->$(b2p))\n")
+        end
+ 
+        @assert(false)
+      end
       mesh_element.boundaries = deleteat!(mesh_element.boundaries, get(found))
     end
   end
