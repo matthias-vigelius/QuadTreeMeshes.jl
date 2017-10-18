@@ -12,4 +12,5 @@ end
 include("TestHelpers.jl")
 include("CurrentTest.jl")
 
+#include("MeshTests.jl")
 #include("QuadTreeTests.jl")

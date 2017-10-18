@@ -1,3 +1,24 @@
+function get_boundary_coordinates_from_index(bndy_index::Int64, qtEl::QuadTreeMeshes.QuadTreeElement, qt::QuadTreeMeshes.QuadTree)
+  # get quad tree element
+
+  if bndy_index <= 4
+    b1, b2 = qtEl.bbLeftBottomIndex, qtEl.bbRightBottomIndex
+  elseif bndy_index <= 8
+    b1, b2 = qtEl.bbRightBottomIndex, qtEl.bbRightTopIndex
+  elseif bndy_index <= 12
+    b1, b2 = qtEl.bbRightTopIndex, qtEl.bbLeftTopIndex
+  else
+    b1, b2 = qtEl.bbLeftTopIndex, qtEl.bbLeftBottomIndex
+  end
+
+  inner_index = (bndy_index - 1) % 4
+  x1, x2 = qt.vertices[b1], qt.vertices[b2]
+  ds = x2 - x1
+  pos = x1 + ds * (0.125 + inner_index * 0.25)
+
+  return pos
+end
+
 function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTreeMeshes.ElIndex, ls::GeometryTypes.Simplex{2, QuadTreeMeshes.Point}, center_vertex::Nullable{QuadTreeMeshes.vertex_index})
   qt_element = qt.elements[elIndex]
   mesh_element = get(qt.values[elIndex])
@@ -86,8 +107,6 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
         input_boundary = (interPoints[1], interPoints[1])
       elseif length(interPoints) == 2
         input_boundary = (interPoints[1], interPoints[2])
-      else
-        @assert(false)
       end
       found = Nullable{Int}()
       for (ind, b) in enumerate(mesh_element.boundaries)
@@ -100,20 +119,14 @@ function check_leave_intersection(qt::QuadTreeMeshes.QuadTree, elIndex::QuadTree
           found = Nullable{Int}(ind)
         end
       end
-      #@assert(!isnull(found))
-      if (isnull(found))
-        print_with_color(:red, "Intersection points:")
-        print_with_color(:yellow, "$(interPoints)\n")
-        print_with_color(:red, "boundaries:")
+      if isnull(found)
+        print_with_color(:red, "No suitable boundaries found. Intersection points $(interPoints)\n")
         for b in mesh_element.boundaries
           b1, b2 = b
-          b1p = qt.vertices[b1.vertex]
-          b2p = qt.vertices[b2.vertex]
-          print_with_color(:yellow, "($(b1p)->$(b2p))\n")
+          print_with_color(:green, "$(b1.vertex) [$(qt.vertices[b1.vertex])] -> $(b2.vertex) [$(qt.vertices[b2.vertex])]\n") 
         end
- 
-        @assert(false)
       end
+      @assert(!isnull(found))
       mesh_element.boundaries = deleteat!(mesh_element.boundaries, get(found))
     end
   end
