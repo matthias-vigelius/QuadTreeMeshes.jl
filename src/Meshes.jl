@@ -1,13 +1,15 @@
 @enum Boundary None=1 Sides=2 Center=3
 @enum VertexType Inner=1 Outer=2
-@enum InnerBoundaryPos  nnw = 1 nne = 2 nee = 3 see =4 sse = 5 ssw = 6 sww = 7 nww = 8 n = 9 s = 10 w = 11 e = 12 nw = 13 ne = 14 sw = 15 se = 16 nnn = 17 eee = 18 sss = 19 www = 20
+@enum InnerBoundaryPos  nnw = 1 nne = 2 nee = 3 see =4 sse = 5 ssw = 6 sww = 7 nww = 8 n = 9 s = 10 w = 11 e = 12
+@enum SnappedBoundaryPos nw = 1 n = 2 ne = 3 e = 4 se = 5 s = 6 sw =7 w = 8 c = 9
 
 type BoundaryVertex
   vt::VertexType # needed
-  quadrant::POS
+  #quadrant::POS
   boundary::InnerBoundaryPos # needed
-  crossing_dir::Bool # positive: crossing in positive direction (left->right, bottom->top)
+  #crossing_dir::Bool # positive: crossing in positive direction (left->right, bottom->top)
   vertex::vertex_index #needed
+  snapped::Nullable{SnappedBoundaryPos}
 end
 
 const BoundaryVertices = Array{Tuple{BoundaryVertex, BoundaryVertex}, 1}
@@ -252,8 +254,8 @@ function triangulate_boundary_leave(mesh::QuadTreeMesh, elIndex::ElIndex, bnd1In
   # we just assume it is
   pos1 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd1Index], rt, lb)
   pos2 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd2Index], rt, lb)
-  bv1 = BoundaryVertex(Outer, northWest, pos1, true, bnd1Index)
-  bv2 = BoundaryVertex(Outer, northWest, pos2, true, bnd2Index)
+  bv1 = BoundaryVertex(Outer, pos1, bnd1Index, Nullable{SnappedBoundaryVertex}())
+  bv2 = BoundaryVertex(Outer, pos2, bnd2Index, Nullable{SnappedBoundaryVertex}())
 
   # create new mesh element and add to list
   new_mesh_element = MeshElement(triangle_indices, Sides, [(bv1, bv2)], Nullable{vertex_index}())
@@ -377,11 +379,11 @@ function triangulate_boundary_leave_with_vertex(mesh::QuadTreeMesh, elIndex::ElI
   end
 
   # create new mesh element and add to list
-  nbvv = BoundaryVertex(Inner, northWest, nnw, true, vIndex)
+  nbvv = BoundaryVertex(Inner, nnw, vIndex, Nullable{SnappedBoundaryVertex}())
   pos1 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd1Index], rt, lb)
-  nbv1 = BoundaryVertex(Outer, northWest, pos1, true, bnd1Index)
+  nbv1 = BoundaryVertex(Outer, pos1, bnd1Index, Nullable{SnappedBoundaryVertex}())
   pos2 = get_inner_boundary_pos_from_coordinate(qt.vertices[bnd2Index], rt, lb)
-  nbv2 = BoundaryVertex(Outer, northWest, pos2, true, bnd2Index)
+  nbv2 = BoundaryVertex(Outer, pos2, bnd2Index, Nullable{SnappedBoundaryVertex}())
 
   new_mesh_element = MeshElement(triangle_indices, Center, [(nbv1, nbvv), (nbvv, nbv2)], Nullable{vertex_index}(vIndex))
   qt.values[elIndex] = Nullable{QuadTreeMeshes.MeshElement}(new_mesh_element)
@@ -494,71 +496,49 @@ function intersect(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegmen
   end
 end
 
-function fill_if_intersects(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegment, isp::Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}, 1}, ibp::InnerBoundaryPos)
-  i, t, p, s = intersect(ls1, ls2)
-  if i
-    #print("Pushing point $p from $ls1 -> $ls2\n")
-    push!(isp, (t, p, s, ibp))
-  end
-end
-
-function check_for_single_endpoint(ls::GeometryTypes.LineSegment, isp::Point, ibpd::InnerBoundaryPos, ibpl::InnerBoundaryPos, ibpr::InnerBoundaryPos)
+function check_for_single_endpoint(ls::GeometryTypes.LineSegment, isp::Point, bpl::SnappedBoundaryPos, ibpr::SnappedBoundaryPos)
   s, e = ls
 
   ds = dot((s-isp), (s-isp))
   if (ds < 1e-5^2)
-    return ibpl
+    return Nullable{SnappedBoundaryPos}(ibpl)
   end
   de = dot((e-isp), (e-isp))
   if (de < 1e-5^2)
-    return ibpr
+    return Nullable{SnappedBoundaryPos}(ibpr)
   end
 
-  return ibpd
+  return Nullable{SnappedBoundaryPos}()
 end
 
-function check_for_endpoint(lbs::LeaveBoundarySegments, isp::Point, ibpd::InnerBoundaryPos)
-  ibpd = check_for_single_endpoint(lbs.nnw_segment, isp, ibpd, nw, nnn)
-  ibpd = check_for_single_endpoint(lbs.nne_segment, isp, ibpd, nnn, ne)
-  ibpd = check_for_single_endpoint(lbs.nee_segment, isp, ibpd, e, ne)
-  ibpd = check_for_single_endpoint(lbs.see_segment, isp, ibpd, se, e)
-  ibpd = check_for_single_endpoint(lbs.sse_segment, isp, ibpd, sss, se)
-  ibpd = check_for_single_endpoint(lbs.ssw_segment, isp, ibpd, sw, sss)
-  ibpd = check_for_single_endpoint(lbs.sww_segment, isp, ibpd, sw, w)
-  ibpd = check_for_single_endpoint(lbs.nww_segment, isp, ibpd, w, nw)
-  ibpd = check_for_single_endpoint(lbs.n_segment, isp, ibpd, c, nnn)
-  ibpd = check_for_single_endpoint(lbs.s_segment, isp, ibpd, sss, c)
-  ibpd = check_for_single_endpoint(lbs.w_segment, isp, ibpd, w, c)
-  ibpd = check_for_single_endpoint(lbs.e_segment, isp, ibpd, c, e)
-
-  return ibpd
+function fill_if_intersects(ls1::GeometryTypes.LineSegment, ls2::GeometryTypes.LineSegment, isp::Array{Tuple{Float64, Point, Bool, InnerBoundaryPos, SnappedBoundaryPos}, 1}, ibp::InnerBoundaryPos, sp1::SnappedBoundaryPos, sp2::SnappedBoundaryPos)
+  i, t, p, s = intersect(ls1, ls2)
+  if i
+    #print("Pushing point $p from $ls1 -> $ls2\n")
+    # snap boundary points onto endpoints if they are close enough
+    snapped = check_for_single_endpoint(ls2, i, sp1, sp2)
+    push!(isp, (t, p, s, ibp, snapped))
+  end
 end
 
 function intersect_with_leave(lbs::LeaveBoundarySegments, ls::GeometryTypes.Simplex{2, Point})
   # get all intersections with all relevant boundary segments
-  isp = Array{Tuple{Float64, Point, Bool, InnerBoundaryPos}, 1}()
-  fill_if_intersects(ls, lbs.nnw_segment, isp, nnw)
-  fill_if_intersects(ls, lbs.nne_segment, isp, nne)
-  fill_if_intersects(ls, lbs.nee_segment, isp, nee)
-  fill_if_intersects(ls, lbs.see_segment, isp, see)
-  fill_if_intersects(ls, lbs.sse_segment, isp, sse)
-  fill_if_intersects(ls, lbs.ssw_segment, isp, ssw)
-  fill_if_intersects(ls, lbs.sww_segment, isp, sww)
-  fill_if_intersects(ls, lbs.nww_segment, isp, nww)
-  fill_if_intersects(ls, lbs.n_segment, isp, n)
-  fill_if_intersects(ls, lbs.s_segment, isp, s)
-  fill_if_intersects(ls, lbs.w_segment, isp, w)
-  fill_if_intersects(ls, lbs.e_segment, isp, e)
+  isp = Array{Tuple{Float64, Point, Bool, InnerBoundaryPos, SnappedBoundaryPos}, 1}()
+  fill_if_intersects(ls, lbs.nnw_segment, isp, nnw, nw, n)
+  fill_if_intersects(ls, lbs.nne_segment, isp, nne, n, ne)
+  fill_if_intersects(ls, lbs.nee_segment, isp, nee, e, ne)
+  fill_if_intersects(ls, lbs.see_segment, isp, see, se, e)
+  fill_if_intersects(ls, lbs.sse_segment, isp, sse, s, se)
+  fill_if_intersects(ls, lbs.ssw_segment, isp, ssw, sw, s)
+  fill_if_intersects(ls, lbs.sww_segment, isp, sww, sw, w)
+  fill_if_intersects(ls, lbs.nww_segment, isp, nww, w, nw)
+  fill_if_intersects(ls, lbs.n_segment, isp, n, c, n)
+  fill_if_intersects(ls, lbs.s_segment, isp, s, s, c)
+  fill_if_intersects(ls, lbs.w_segment, isp, w, w, c)
+  fill_if_intersects(ls, lbs.e_segment, isp, e, c, e)
 
   # sort them according to distance from start point
   sort!(isp, lt = (is1, is2) -> return is1[1] < is2[1])
-
-  # hier weitermachen: wir mussen auf endpunkte explizit checken
-  # Idee: Alle intersection points auf segment endpunkte checken (naeher als 1e-5)
-  # und diese dann in nnn, ne, etc. umwandeln
-  #  usw.. dann muessen diese in get_quadrants_ .. ebenfalls beruecksichtigt werden
-  # duplicate entfernen.
-  isp = map(p -> check_for_endpoint(lbs, isp[2], isp[4]), isp)
 
   return isp
 end
@@ -568,17 +548,33 @@ function get_quadrant_from_boundary_position(qt::QuadTree, elIndex::ElIndex, int
     ips = intersectionPoint.boundary
     print_with_color(:blue, "Checking intersection point $ips.\n")
     retVal = Array{POS, 1}()
-    if ips == nnw || ips == nww || ips == n || ips == w
-      push!(retVal, northWest)
-    end
-    if ips == nne || ips == nee || ips == n || ips == e
-      push!(retVal, northEast)
-    end
-    if ips == sse || ips == see || ips == s || ips == e
-      push!(retVal, southEast)
-    end
-    if ips == ssw || ips == sww || ips == s || ips == w
-      push!(retVal, southWest)
+    if !isnull(intersectionPoint.snapped)
+      snapped = get(intersectionPoint.snapped)
+      if snapped == nw || snapped == n || snapped == w || snapped == c
+        push!(retVal, northWest)
+      end
+      if snapped == n || snapped == ne || snapped == e || snapped == c
+        push!(retVal, northEast)
+      end
+      if snapped == c || snapped == e || snapped == s || snapped == se
+        push!(retVal, southEast)
+      end
+      if snapped == c || snapped == w || snapped == s || snapped == sw
+        push!(retVal, southWest)
+      end
+    else
+      if ips == nnw || ips == nww || ips == n || ips == w
+        push!(retVal, northWest)
+      end
+      if ips == nne || ips == nee || ips == n || ips == e
+        push!(retVal, northEast)
+      end
+      if ips == sse || ips == see || ips == s || ips == e
+        push!(retVal, southEast)
+      end
+      if ips == ssw || ips == sww || ips == s || ips == w
+        push!(retVal, southWest)
+      end
     end
     return retVal
   elseif intersectionPoint.vt == Inner
@@ -588,20 +584,22 @@ function get_quadrant_from_boundary_position(qt::QuadTree, elIndex::ElIndex, int
   end
 end
 
-function find_first_common_position(first::Array{POS, 1}, second::Array{POS,1})
+function find_common_positions(first::Array{POS, 1}, second::Array{POS,1})
   # we assume the input is sorted (which is the case if it comes from get_quadrant_from_boundary_position)
   firstIdx = 1
   secondIdx = 1
+  common_positions = Array{POS, 1}
   while firstIdx <= length(first) && secondIdx <= length(second)
     if first[firstIdx] == second[secondIdx]
-      return Nullable{POS}(first[firstIdx])
+      push!(common_positions, first[firstIdx])
     elseif first[firstIdx] < second[secondIdx] # apparently we can compare enums..
       firstIdx = firstIdx + 1 
     else
       secondIdx = secondIdx + 1
     end
   end
-  @assert(false, "No common position found for $first and $second.")
+  @assert(length(common_positions)>=1, "No common position found for $first and $second.")
+  return common_positions
 end
 
 # we assume that the members of isp have corrrect boundary, vertex_type, crossing_dir
@@ -615,32 +613,73 @@ function forward_boundaries_to_leaves(qt::QuadTree, parent_element::ElIndex, isp
     while curSecondIdx <= length(isp)
       secondIsp = isp[curSecondIdx]
 
-      # intersection points can belong to up to four quadrants (if it's on an inner boundary)
-      # but at least one of the options should match
-      print_with_color(:green, "Testing  $(qt.vertices[firstIsp.vertex]) and $(qt.vertices[secondIsp.vertex]).")
-      firstPoss = get_quadrant_from_boundary_position(qt, parent_element, firstIsp)
-      secondPoss = get_quadrant_from_boundary_position(qt, parent_element, secondIsp)
-      pos = find_first_common_position(firstPoss, secondPoss)
+      if firstIsp.vertex != secondIsp.vertex
+        # intersection points can belong to up to four quadrants (if it's on an inner boundary)
+        # find all common positions
+        print_with_color(:green, "Testing  $(qt.vertices[firstIsp.vertex]) and $(qt.vertices[secondIsp.vertex]).")
+        firstPoss = get_quadrant_from_boundary_position(qt, parent_element, firstIsp)
+        secondPoss = get_quadrant_from_boundary_position(qt, parent_element, secondIsp)
+        poss = find_common_positions(firstPoss, secondPoss)
 
-      # create boundary vertices from intersection points and create a new empty leave
-      leaveIndex = get_leave_from_pos(qt, parent_element, pos)
-      leave = get(qt.values[leaveIndex])
-      bv1 = BoundaryVertex(firstIsp.vt, pos, firstIsp.boundary, firstIsp.crossing_dir, firstIsp.vertex)
-      bv2 = BoundaryVertex(secondIsp.vt, pos, secondIsp.boundary, secondIsp.crossing_dir, secondIsp.vertex)
-      push!(leave.boundaries, (bv1, bv2))
-      if (firstIsp.vt == Inner)
-        leave.center = Nullable{vertex_index}(firstIsp.vertex)
-        leave.boundary_type = Center
-      elseif  secondIsp.vt == Inner
-        leave.boundary_type = Center
-        leave.center = Nullable{vertex_index}(secondIsp.vertex)
-      else
-        leave.boundary_type = Sides
+        # for each common quadrant create boundary vertices from intersection points
+        for pos in poss
+          leaveIndex = get_leave_from_pos(qt, parent_element, pos)
+          leave = get(qt.values[leaveIndex])
+          bv1 = BoundaryVertex(firstIsp.vt, firstIsp.boundary, firstIsp.vertex, Nullable{SnappedBoundaryVertex}())
+          bv2 = BoundaryVertex(secondIsp.vt, secondIsp.boundary, secondIsp.vertex, Nullable{SnappedBoundaryVertex}())
+          push!(leave.boundaries, (bv1, bv2))
+          if (firstIsp.vt == Inner)
+            leave.center = Nullable{vertex_index}(firstIsp.vertex)
+            leave.boundary_type = Center
+          elseif  secondIsp.vt == Inner
+            leave.boundary_type = Center
+            leave.center = Nullable{vertex_index}(secondIsp.vertex)
+          else
+            leave.boundary_type = Sides
+          end
+        end
       end
 
       firstIsp = secondIsp
       curSecondIdx += 1
     end
+end
+
+function get_snapped_vertex(qt::QuadTree, parent_element::ElIndex, snapped::SnappedBoundaryVertex)
+  qtEl = qt.elements[parent_element]
+  if snapped == nw
+    return qtEl.bbLeftTopIndex
+  elseif snapped == ne
+    return qtEl.bbRightTopIndex
+  elseif snapped == sw
+    return qtEl.bbLeftBottomIndex
+  elseif snapped == se
+    return qtEl.bbRightBottomIndex
+  elseif snapped == n
+    northWestEl = qt.elements[get(qtEl.northWest)]
+    return northWestEl.bbRightTopIndex
+  elseif snapped == e
+    northEastEl == qt.elements[get(qtEl.northEast)]
+    return northEastEl.bbRightBottomIndex
+  elseif snapped == s
+    southEastEl == qt.elements[get(qtEl.southEast)]
+    return southEastEl.bbLeftBottomIndex
+  elseif snapped == w
+    southWestEl == qt.elements[get(qtEl.southWest)]
+    return southWestEl.bbLeftTopIndex
+  elseif snapped == c
+    southWestEl == qt.elements[get(qtEl.southWest)]
+    return southWestEl.bbRightTopIndex
+  end
+end
+
+function push_or_get_snapped_vertex(qt::QuadTree, parent_element::ElIndex, p::Point, snapped::Nullable{SnappedBoundaryVertex})
+  if isnull(snapped)
+    push!(qt.vertices, p)
+    return length(qt.vertices)
+  else
+    return get_snapped_vertex(qt, parent_element, get(snapped))
+  end
 end
 
 function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tuple{BoundaryVertex, BoundaryVertex})
@@ -669,10 +708,9 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tu
   # one
   usedIsps = isps[startIndex:length(isps)-1]
   for isp in usedIsps
-    # create vertex and make it into an boundary vertex
-    push!(qt.vertices, isp[2])
-    newVertexIndex = length(qt.vertices)
-    nbv = BoundaryVertex(Outer, northWest, isp[4], isp[3], newVertexIndex)
+    # create vertex and make it into a boundary vertex
+    newVertexIndex = push_or_get_snapped_vertex(qt, parent_element, isp[2], isp[5])
+    nbv = BoundaryVertex(Outer, isp[4], newVertexIndex, Nullable{SnappedBoundaryVertex}())
     push!(allBoundaries,nbv)
   end
 
@@ -682,9 +720,8 @@ function propagate_intersections(qt::QuadTree, parent_element::ElIndex, bndy::Tu
     # push last intersection and end with inner
     if length(isps) >= startIndex
       isp = isps[length(isps)]
-      push!(qt.vertices, isp[2])
-      newVertexIndex = length(qt.vertices)
-      nbv = BoundaryVertex(Outer, northWest, isp[4], isp[3], newVertexIndex)
+      newVertexIndex = push_or_get_snapped_vertex(qt, parent_element, isp[2], isp[5])
+      nbv = BoundaryVertex(Outer, isp[4], newVertexIndex, Nullable{SnappedBoundaryVertex}())
       push!(allBoundaries,nbv)
     end
     push!(allBoundaries, b2)
